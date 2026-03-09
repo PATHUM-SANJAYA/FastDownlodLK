@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastdownloadLK | Universal Video Downloader</title>
+    <meta name="description"
+        content="Download videos from YouTube, TikTok, Instagram and Facebook in HD or MP3 instantly.">
+    <meta name="keywords" content="video downloader, youtube downloader, tiktok downloader">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- AOS Animations -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#10b981', /* emerald-500 */
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body
+    class="antialiased min-h-screen relative font-sans text-slate-800 dark:text-slate-200 overflow-x-hidden transition-colors duration-500"
+    x-data="appData()" x-init="init()" :class="{ 'dark': isDarkMode }">
+
+    <!-- Animated Gradient Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div
+            class="absolute -top-[10%] -left-[10%] w-[40vw] h-[40vw] rounded-full bg-emerald-500/20 dark:bg-emerald-600/10 blur-[120px] animate-pulse">
+        </div>
+        <div class="absolute -bottom-[10%] -right-[10%] w-[40vw] h-[40vw] rounded-full bg-emerald-700/10 dark:bg-black blur-[120px] animate-pulse"
+            style="animation-delay: 2s;"></div>
+    </div>
+    <div class="animated-bg fixed inset-0 z-0 opacity-10 dark:opacity-40 pointer-events-none">
+    </div>
+
+    <!-- Main App Container -->
+    <div
+        class="relative z-10 flex flex-col min-h-screen transition-colors duration-500 bg-slate-50/70 dark:bg-[#0e1111] backdrop-blur-xl">
+
+        <!-- Navbar -->
+        <nav class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex justify-between items-center"
+            data-aos="fade-down" data-aos-duration="800">
+            <a href="/"
+                class="text-xl sm:text-2xl font-extrabold flex items-center gap-2 sm:gap-3 tracking-tight group cursor-pointer decoration-transparent">
+                <div
+                    class="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500/10 dark:bg-emerald-400/5 backdrop-blur-md flex items-center justify-center border border-emerald-500/30 dark:border-emerald-400/20 shadow-lg shadow-emerald-500/10 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 relative overflow-hidden">
+                    <!-- Modern accent glow -->
+                    <div
+                        class="absolute -inset-1 bg-gradient-to-tr from-emerald-400/30 to-cyan-400/30 blur-sm opacity-50 group-hover:opacity-100 transition-opacity">
+                    </div>
+                    <i
+                        class="fa-solid fa-bolt drop-shadow-md text-sm sm:text-base text-emerald-600 dark:text-emerald-400 relative z-10"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span
+                        class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-cyan-600 dark:from-white dark:to-emerald-300 leading-none group-hover:opacity-80 transition-opacity uppercase tracking-tight">FastdownloadLK</span>
+                    <span
+                        class="text-[7px] sm:text-[9px] font-bold text-emerald-500 dark:text-emerald-400 tracking-[0.2em] uppercase mt-0.5">By
+                        Pathum</span>
+                </div>
+            </a>
+            <button @click="toggleTheme()"
+                class="w-9 h-9 sm:w-12 sm:h-12 rounded-full glass-card flex items-center justify-center hover:scale-110 transition-transform shadow-md">
+                <i class="fa-solid text-sm sm:text-xl transition-all"
+                    :class="isDarkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-indigo-600'"></i>
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-grow flex flex-col items-center px-4 sm:px-6 py-8 lg:py-16 w-full max-w-7xl mx-auto">
+
+            <!-- Hero Section -->
+            <div class="w-full max-w-4xl text-center mb-10 relative z-10" data-aos="zoom-in" data-aos-duration="1000">
+
+
+                <h1
+                    class="text-3xl md:text-4xl lg:text-5xl font-black mb-3 tracking-tight leading-tight drop-shadow-sm text-slate-900 dark:text-white">
+                    Universal <span class="text-emerald-500 dark:text-white animate-pulse-slow inline-block">Social
+                        Media</span> Downloader
+                </h1>
+                <p class="text-sm md:text-base text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-6 font-light">
+                    Download videos from YouTube, TikTok, Instagram and more instantly. No watermarks. 100% Free.
+                </p>
+
+                <!-- Supported platforms strip -->
+                <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs sm:text-sm mb-8">
+                    <span
+                        class="uppercase tracking-[0.3em] text-[8px] sm:text-[10px] font-bold text-slate-400 dark:text-slate-600">SUPPORTED</span>
+                    <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+                        <span
+                            class="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 gap-0 sm:gap-1.5 rounded-full glass-badge icon-hover shadow-sm">
+                            <i class="fa-brands fa-youtube text-red-500 text-sm sm:text-base"></i><span
+                                class="hidden sm:inline font-medium text-xs">YouTube</span>
+                        </span>
+                        <span
+                            class="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 gap-0 sm:gap-1.5 rounded-full glass-badge icon-hover shadow-sm">
+                            <i class="fa-brands fa-tiktok text-black dark:text-white text-sm sm:text-base"></i><span
+                                class="hidden sm:inline font-medium text-xs">TikTok</span>
+                        </span>
+                        <span
+                            class="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 gap-0 sm:gap-1.5 rounded-full glass-badge icon-hover shadow-sm">
+                            <i class="fa-brands fa-instagram text-pink-500 text-sm sm:text-base"></i><span
+                                class="hidden sm:inline font-medium text-xs">Instagram</span>
+                        </span>
+                        <span
+                            class="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 gap-0 sm:gap-1.5 rounded-full glass-badge icon-hover shadow-sm">
+                            <i class="fa-brands fa-facebook text-blue-600 text-sm sm:text-base"></i><span
+                                class="hidden sm:inline font-medium text-xs">Facebook</span>
+                        </span>
+                        <span
+                            class="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 gap-0 sm:gap-1.5 rounded-full glass-badge icon-hover shadow-sm">
+                            <i class="fa-brands fa-twitter text-sky-500 text-sm sm:text-base"></i><span
+                                class="hidden sm:inline font-medium text-xs">Twitter</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Input Box Area -->
+                <div class="glass-search p-2 md:p-3 rounded-[2rem] md:rounded-[2.5rem] flex flex-col md:flex-row items-center gap-2 md:gap-3 relative transition-all duration-300 mx-auto w-full max-w-2xl"
+                    :class="{ 'drag-over': isDragging, 'search-focused': isFocused }"
+                    @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop($event)">
+
+                    <div class="flex-grow w-full md:w-auto relative flex items-center">
+                        <i class="fa-solid fa-link absolute left-4 md:left-5 text-base md:text-lg text-emerald-500 dark:text-slate-400 z-10 transition-colors"
+                            :class="{'text-emerald-400 dark:text-emerald-400': isFocused}"></i>
+                        <input type="url" x-model="url" placeholder="Paste video link here..."
+                            class="w-full bg-transparent border-0 outline-none focus:ring-0 pl-10 md:pl-12 pr-3 md:pr-4 py-2.5 md:py-4 text-sm md:text-base placeholder-slate-400 dark:placeholder-slate-600 font-medium text-slate-900 dark:text-white transition-all h-full"
+                            @focus="isFocused = true" @blur="isFocused = false" @keyup.enter="fetchVideoData()" />
+                    </div>
+
+                    <div class="flex w-full md:w-auto gap-2 md:gap-3 h-full">
+                        <button @click="handlePaste()"
+                            class="flex-1 md:flex-none px-3 py-2.5 md:px-5 md:py-4 bg-white/40 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 rounded-2xl md:rounded-3xl font-semibold transition-all flex items-center justify-center gap-1.5 md:gap-2 button-glass">
+                            <i class="fa-regular fa-clipboard text-sm md:text-base"></i> <span
+                                class="text-[10px] md:text-xs uppercase tracking-wider">Paste</span>
+                        </button>
+                        <button @click="fetchVideoData()" :disabled="!url || isLoading"
+                            class="flex-1 md:flex-none px-4 py-2.5 md:px-8 md:py-4 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black text-white rounded-2xl md:rounded-3xl font-bold transition-all transform hover:scale-[1.03] shadow-lg md:shadow-xl shadow-emerald-600/30 dark:shadow-emerald-500/10 flex items-center justify-center gap-1.5 md:gap-2 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed">
+                            <span x-show="!isLoading"
+                                class="flex gap-1.5 md:gap-2 items-center text-[10px] md:text-xs uppercase tracking-wider">Download
+                                <i class="fa-solid fa-arrow-right text-[10px] md:text-xs"></i></span>
+                            <span x-show="isLoading"
+                                class="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs uppercase tracking-wider">
+                                <i class="fa-solid fa-circle-notch fa-spin"></i> Wait
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Error Banner -->
+            <div x-show="errorMessage" x-transition
+                class="w-full max-w-3xl mb-8 p-4 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl flex items-center gap-3">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span x-text="errorMessage"></span>
+                <button @click="errorMessage = ''" class="ml-auto hover:text-red-900 dark:hover:text-red-300"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Loading API Animation -->
+            <div x-show="isLoading && !errorMessage" class="my-12 flex flex-col items-center justify-center"
+                x-transition>
+                <div class="premium-loader mb-6"></div>
+                <p
+                    class="text-xl font-medium bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-emerald-400 animate-pulse">
+                    Extracting video formats...</p>
+            </div>
+
+            <!-- Results Section -->
+            <template x-if="videoData && !isLoading">
+                <div id="preview-section" class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 mt-10"
+                    data-aos="fade-up">
+
+                    <!-- Video Preview Card -->
+                    <div
+                        class="lg:col-span-5 glass-card rounded-[1.5rem] md:rounded-[2rem] overflow-hidden flex flex-col p-3 shadow-xl h-fit border border-white/40 dark:border-white/5 relative group">
+                        <!-- Abstract background glow -->
+                        <div
+                            class="absolute -inset-4 bg-gradient-to-r from-emerald-500/20 to-emerald-900/20 blur-2xl z-0 rounded-[3rem] opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                        </div>
+
+                        <div
+                            class="relative z-10 w-full aspect-video rounded-xl md:rounded-2xl overflow-hidden bg-[#0A0A0A] mb-4 border border-white/10 shadow-inner group-hover:shadow-2xl transition-shadow">
+                            <img :src="videoData.thumbnail" alt="Video Thumbnail"
+                                class="object-cover w-full h-full transition-transform duration-1000 group-hover:scale-105 opacity-90 group-hover:opacity-100"
+                                loading="lazy">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
+                            </div>
+
+                            <div
+                                class="absolute top-3 right-3 bg-black/40 backdrop-blur-xl rounded-xl p-2 md:p-2.5 flex items-center justify-center border border-white/10 shadow-2xl">
+                                <i :class="videoData.platform.icon + ' text-lg md:text-xl'"
+                                    :style="'color:' + videoData.platform.color"></i>
+                            </div>
+                            <div
+                                class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white/90 font-mono text-[10px] md:text-xs px-2.5 py-1 rounded-lg tracking-wider">
+                                <span x-text="videoData.duration"></span>
+                            </div>
+                        </div>
+
+                        <div class="relative z-10 flex-grow flex flex-col justify-between px-2 pb-2">
+                            <div>
+                                <h3 class="font-bold text-base md:text-lg leading-snug mb-1 line-clamp-2 text-slate-800 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
+                                    x-text="videoData.title"></h3>
+                                <p class="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest font-semibold mt-2"
+                                    x-text="videoData.platform.name"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="lg:col-span-7 glass-card rounded-[1.5rem] md:rounded-[2rem] p-4 sm:p-6 shadow-xl border border-white/40 dark:border-white/5 relative overflow-hidden flex flex-col">
+
+                        <span class="w-6 md:w-8 h-px bg-emerald-500/50"></span>
+                        Available Formats
+                        </h2>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 relative z-10">
+                            <template x-for="(format, index) in formats" :key="index">
+                                <button @click="startDownload(format)"
+                                    class="w-full text-left glass-btn rounded-2xl md:rounded-3xl p-3 md:p-4 flex items-center justify-between cursor-pointer group transition-all duration-300 border-2 relative overflow-hidden"
+                                    :class="selectedFormat === format.quality ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/10 bg-emerald-500/5' : 'hover:bg-white/60 dark:hover:bg-white/10 border-transparent'">
+
+                                    <!-- Progress Background Fill -->
+                                    <template x-if="isDownloading && selectedFormat === format.quality">
+                                        <div class="absolute inset-y-0 left-0 bg-emerald-500/40 dark:bg-emerald-600/50 transition-all duration-300 ease-out z-0"
+                                            :style="`width: ${downloadProgress}%` ">
+                                            <div class="absolute inset-0 progress-shine opacity-40"></div>
+                                        </div>
+                                    </template>
+
+                                    <div class="flex items-center gap-3 relative z-10 w-full">
+                                        <div class="w-10 h-10 flex-shrink-0 rounded-xl bg-white/50 dark:bg-black/40 flex items-center justify-center text-slate-700 dark:text-slate-300 text-lg shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
+                                            :class="selectedFormat === format.quality ? 'text-emerald-500' : 'group-hover:text-emerald-500 dark:group-hover:text-white'">
+                                            <i class="fa-solid" :class="format.icon"></i>
+                                        </div>
+                                        <div class="min-w-0 pr-2 flex-grow">
+                                            <div class="font-bold text-sm md:text-base tracking-wide truncate"
+                                                :class="selectedFormat === format.quality ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-800 dark:text-white'"
+                                                x-text="format.label"></div>
+                                            <div class="text-[10px] md:text-xs font-medium tracking-wider mt-0.5 uppercase truncate flex items-center gap-2"
+                                                :class="selectedFormat === format.quality ? 'text-emerald-600/80 dark:text-emerald-400/80' : 'text-slate-500 dark:text-slate-400'">
+                                                <span x-text="format.type"></span>
+                                            </div>
+                                        </div>
+                                        <div class="w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm group-hover:shadow-lg"
+                                            :class="selectedFormat === format.quality ? 'bg-emerald-500 text-white shadow-emerald-500/40' : 'bg-white/30 dark:bg-white/5 group-hover:bg-emerald-600 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-black text-slate-400 dark:text-slate-500'">
+                                            <i class="fa-solid"
+                                                :class="isDownloading && selectedFormat === format.quality ? 'fa-spinner fa-spin' : 'fa-arrow-down'"></i>
+                                        </div>
+                                    </div>
+                                </button>
+                            </template>
+                        </div>
+
+                    </div>
+                </div>
+            </template>
+
+            <!-- Separator -->
+            <div class="w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-700 to-transparent my-8 md:my-12"
+                data-aos="fade-in"></div>
+
+            <!-- How It Works Section -->
+            <div class="w-full max-w-5xl mb-12 md:mb-16" data-aos="fade-up">
+                <div class="text-center mb-8 md:mb-12">
+                    <span
+                        class="text-emerald-600 dark:text-emerald-400 font-bold tracking-wider uppercase text-[10px] md:text-xs mb-1 block">Simple
+                        Process</span>
+                    <h2 class="text-2xl md:text-3xl font-extrabold mb-3 text-slate-900 dark:text-white">How It Works
+                    </h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 relative">
+                    <!-- Connecting line for desktop -->
+                    <div
+                        class="hidden md:block absolute top-[3.5rem] left-[16.6%] right-[16.6%] h-0.5 bg-gradient-to-r from-emerald-200 via-emerald-400 to-black dark:from-emerald-900/20 dark:via-emerald-500/20 dark:to-[#0e1111] -z-10">
+                    </div>
+
+                    <!-- Step 1 -->
+                    <div
+                        class="glass-card p-3 md:p-6 rounded-xl md:rounded-2xl z-10 text-center flex flex-col items-center card-hover border border-white/50 dark:border-white/10 relative overflow-hidden group bg-white/60 dark:bg-[#0e1111]/40">
+                        <div
+                            class="absolute -right-2 -top-2 text-5xl md:text-7xl font-black text-slate-100 dark:text-slate-800/30 z-0 transition-transform group-hover:scale-110">
+                            1</div>
+                        <div
+                            class="relative z-10 w-10 h-10 md:w-16 md:h-16 rounded-lg md:rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-800/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg md:text-2xl mb-2 md:mb-4 shadow-xl shadow-emerald-500/10 border border-emerald-200 dark:border-emerald-800 transform rotate-3 group-hover:rotate-0 transition-transform">
+                            <i class="fa-regular fa-clone"></i>
+                        </div>
+                        <h3
+                            class="relative z-10 text-sm md:text-lg font-bold mb-1 md:mb-2 text-slate-900 dark:text-white">
+                            Copy & Paste
+                        </h3>
+                        <p
+                            class="relative z-10 text-slate-600 dark:text-slate-400 text-[10px] md:text-xs leading-relaxed">
+                            Copy the
+                            link of video from your social media app and paste it into our search bar above.</p>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div
+                        class="glass-card p-3 md:p-6 rounded-xl md:rounded-2xl z-10 text-center flex flex-col items-center card-hover border border-white/50 dark:border-white/10 relative overflow-hidden group bg-white/60 dark:bg-[#0e1111]/40">
+                        <div
+                            class="absolute -right-2 -top-2 text-5xl md:text-7xl font-black text-slate-100 dark:text-slate-800/30 z-0 transition-transform group-hover:scale-110">
+                            2</div>
+                        <div
+                            class="relative z-10 w-10 h-10 md:w-16 md:h-16 rounded-lg md:rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-800/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg md:text-2xl mb-2 md:mb-4 shadow-xl shadow-emerald-500/10 border border-emerald-200 dark:border-emerald-800 transform -rotate-3 group-hover:rotate-0 transition-transform">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                        <h3
+                            class="relative z-10 text-sm md:text-lg font-bold mb-1 md:mb-2 text-slate-900 dark:text-white">
+                            Choose Format
+                        </h3>
+                        <p
+                            class="relative z-10 text-slate-600 dark:text-slate-400 text-[10px] md:text-xs leading-relaxed">
+                            Select your
+                            preferred video quality (144p to 1080p) or opt to extract the MP3 audio instantly.</p>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div
+                        class="glass-card p-3 md:p-6 rounded-xl md:rounded-2xl z-10 text-center flex flex-col items-center card-hover border border-white/50 dark:border-white/10 relative overflow-hidden group bg-white/60 dark:bg-[#0e1111]/40">
+                        <div
+                            class="absolute -right-2 -top-2 text-5xl md:text-7xl font-black text-slate-100 dark:text-slate-800/30 z-0 transition-transform group-hover:scale-110">
+                            3</div>
+                        <div
+                            class="relative z-10 w-10 h-10 md:w-16 md:h-16 rounded-lg md:rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-800/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg md:text-2xl mb-2 md:mb-4 shadow-xl shadow-emerald-500/10 border border-emerald-200 dark:border-emerald-800 transform rotate-3 group-hover:rotate-0 transition-transform">
+                            <i class="fa-solid fa-cloud-arrow-down"></i>
+                        </div>
+                        <h3
+                            class="relative z-10 text-sm md:text-lg font-bold mb-1 md:mb-2 text-slate-900 dark:text-white">
+                            Download</h3>
+                        <p
+                            class="relative z-10 text-slate-600 dark:text-slate-400 text-[10px] md:text-xs leading-relaxed">
+                            Hit the
+                            download button and save the file to your device with lightning fast speeds.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features Section -->
+            <div class="w-full max-w-6xl mb-12 mt-10 md:mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
+                data-aos="fade-up" data-aos-offset="100">
+                <div
+                    class="feature-card glass-card p-3 md:p-5 rounded-xl md:rounded-2xl flex flex-col items-start gap-2 md:gap-4 border border-white/40 dark:border-white/5 hover:-translate-y-2 transition-transform duration-500">
+                    <div
+                        class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-100 dark:bg-emerald-900/30 font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-base md:text-xl shadow-inner">
+                        <i class="fa-solid fa-bolt-lightning"></i>
+                    </div>
+                    <div class="space-y-0.5 md:space-y-1">
+                        <h4 class="font-bold text-xs md:text-base text-slate-800 dark:text-slate-100">
+                            Blazing
+                            Fast</h4>
+                        <p
+                            class="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 leading-snug md:leading-relaxed font-medium">
+                            Direct
+                            routing to FastdownloadLK endpoints for the fastest possible download speeds available.</p>
+                    </div>
+                </div>
+
+                <div
+                    class="feature-card glass-card p-3 md:p-5 rounded-xl md:rounded-2xl flex flex-col items-start gap-2 md:gap-4 border border-white/40 dark:border-white/5 hover:-translate-y-2 transition-transform duration-500">
+                    <div
+                        class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-blue-100 dark:bg-blue-900/30 font-bold text-blue-600 dark:text-blue-400 flex items-center justify-center text-base md:text-xl shadow-inner">
+                        <i class="fa-solid fa-droplet-slash"></i>
+                    </div>
+                    <div class="space-y-0.5 md:space-y-1">
+                        <h4 class="font-bold text-xs md:text-base text-slate-800 dark:text-slate-100">No
+                            Watermarks</h4>
+                        <p
+                            class="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 leading-snug md:leading-relaxed font-medium">
+                            Download
+                            completely clean videos without any intrusive watermarks or platform logos.</p>
+                    </div>
+                </div>
+                <div
+                    class="feature-card glass-card p-3 md:p-5 rounded-xl md:rounded-2xl flex flex-col items-start gap-2 md:gap-4 border border-white/40 dark:border-white/5 hover:-translate-y-2 transition-transform duration-500">
+                    <div
+                        class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-100 dark:bg-emerald-900/30 font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-base md:text-xl shadow-inner">
+                        <i class="fa-solid fa-earth-americas"></i>
+                    </div>
+                    <div class="space-y-0.5 md:space-y-1">
+                        <h4 class="font-bold text-xs md:text-base text-slate-800 dark:text-slate-100">
+                            100+
+                            Platforms</h4>
+                        <p
+                            class="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 leading-snug md:leading-relaxed font-medium">
+                            Seamlessly
+                            download content from Instagram, TikTok, YouTube, Twitter, and Reddit.</p>
+                    </div>
+                </div>
+                <div
+                    class="feature-card glass-card p-3 md:p-5 rounded-xl md:rounded-2xl flex flex-col items-start gap-2 md:gap-4 border border-white/40 dark:border-white/5 hover:-translate-y-2 transition-transform duration-500">
+                    <div
+                        class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-100 dark:bg-emerald-900/30 font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-base md:text-xl shadow-inner">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <div class="space-y-0.5 md:space-y-1">
+                        <h4 class="font-bold text-xs md:text-base text-slate-800 dark:text-slate-100">
+                            Private
+                            & Secure</h4>
+                        <p
+                            class="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 leading-snug md:leading-relaxed font-medium">
+                            Your
+                            privacy is guaranteed. No tracking, zero logs, and absolutely no registration needed.
+                        </p>
+                    </div>
+                </div>
+                <div
+                    class="feature-card glass-card p-3 md:p-5 rounded-xl md:rounded-2xl flex flex-col items-start gap-2 md:gap-4 border border-white/40 dark:border-white/5 hover:-translate-y-2 transition-transform duration-500">
+                    <div
+                        class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-100 dark:bg-emerald-900/30 font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-base md:text-xl shadow-inner">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </div>
+                    <div class="space-y-0.5 md:space-y-1">
+                        <h4 class="font-bold text-xs md:text-base text-slate-800 dark:text-slate-100">Any
+                            Device</h4>
+                        <p
+                            class="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 leading-snug md:leading-relaxed font-medium">
+                            Engineered
+                            to work flawlessly on your desktop, iPhone, iPad or Android devices.</p>
+                    </div>
+                </div>
+                <div
+                    class="feature-card glass-card p-3 md:p-5 rounded-xl md:rounded-2xl flex flex-col items-start gap-2 md:gap-4 border border-white/40 dark:border-white/5 hover:-translate-y-2 transition-transform duration-500">
+                    <div
+                        class="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-yellow-100 dark:bg-yellow-900/30 font-bold text-yellow-600 dark:text-yellow-400 flex items-center justify-center text-base md:text-xl shadow-inner">
+                        <i class="fa-solid fa-headphones"></i>
+                    </div>
+                    <div class="space-y-0.5 md:space-y-1">
+                        <h4 class="font-bold text-xs md:text-base text-slate-800 dark:text-slate-100">HD
+                            &
+                            MP3</h4>
+                        <p
+                            class="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 leading-snug md:leading-relaxed font-medium">
+                            Choose
+                            between the highest resolution native video files or crisp 320kbps MP3 audio rips.</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer
+            class="mt-auto py-6 md:py-8 glass-card border-b-0 border-x-0 mx-4 md:mx-12 lg:mx-auto max-w-7xl w-full rounded-t-[1.5rem] md:rounded-t-[2rem] text-slate-500 dark:text-slate-400 text-sm">
+            <div class="flex flex-col md:flex-row justify-between items-center px-6 md:px-12 gap-4 md:gap-5">
+                <!-- Branding -->
+                <div class="flex items-center gap-2 font-bold text-sm md:text-base text-slate-800 dark:text-slate-200">
+                    <i class="fa-solid fa-bolt text-emerald-500"></i> FastdownloadLK
+                </div>
+
+                <!-- Links -->
+                <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 font-medium text-[10px] md:text-xs flex-grow">
+                    <a href="/privacy.html"
+                        class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Privacy
+                        Policy</a>
+                    <a href="/terms.html"
+                        class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Terms
+                        of
+                        Service</a>
+                    <a href="/contact.html"
+                        class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Contact
+                        Us</a>
+                </div>
+
+                <!-- Social -->
+                <div class="flex gap-3 text-base">
+                    <a href="https://www.youtube.com/@DarkLightFF-60" target="_blank" rel="noopener noreferrer"
+                        class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors"
+                        title="YouTube"><i class="fa-brands fa-youtube"></i></a>
+                    <a href="https://www.tiktok.com/@pm_edit_973" target="_blank" rel="noopener noreferrer"
+                        class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors"
+                        title="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+                    <a href="https://www.linkedin.com/in/pathum-sanjaya-b86155367" target="_blank"
+                        rel="noopener noreferrer"
+                        class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-blue-100 hover:text-blue-700 transition-colors"
+                        title="LinkedIn"><i class="fa-brands fa-linkedin"></i></a>
+                    <a href="https://web.facebook.com/PATHUMSANJAYA979" target="_blank" rel="noopener noreferrer"
+                        class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-blue-100 hover:text-blue-500 transition-colors"
+                        title="Facebook"><i class="fa-brands fa-facebook"></i></a>
+                </div>
+            </div>
+            <div
+                class="text-center mt-6 md:mt-8 pt-6 md:pt-8 border-t border-slate-200 dark:border-slate-800 px-6 md:px-8 flex flex-col gap-1.5 md:gap-2">
+                <p class="text-[10px] md:text-sm">&copy; 2026 FastdownloadLK Downloader. All rights reserved.</p>
+                <p class="text-[8px] md:text-[10px] text-slate-400 font-semibold tracking-wide uppercase">
+                    website create by <span class="text-emerald-500 dark:text-emerald-400 font-bold">Pathum
+                        Sanjaya</span></p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Alpine JS -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- AOS JS -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <!-- App Logic -->
+    <script src="./script.js"></script>
+</body>
+
+</html>

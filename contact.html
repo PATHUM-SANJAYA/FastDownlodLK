@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us | FastdownloadLK</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], }, colors: { primary: '#10b981', } } }
+        }
+    </script>
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body
+    class="antialiased min-h-screen relative font-sans text-slate-800 dark:text-slate-200 overflow-x-hidden transition-colors duration-500"
+    x-data="appData()" x-init="init()" :class="{ 'dark': isDarkMode }">
+
+    <!-- Animated Gradient Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div
+            class="absolute -top-[10%] -left-[10%] w-[40vw] h-[40vw] rounded-full bg-emerald-500/20 dark:bg-emerald-600/10 blur-[120px] animate-pulse">
+        </div>
+        <div class="absolute -bottom-[10%] -right-[10%] w-[40vw] h-[40vw] rounded-full bg-emerald-700/10 dark:bg-black blur-[120px] animate-pulse"
+            style="animation-delay: 2s;"></div>
+    </div>
+    <div class="animated-bg fixed inset-0 z-0 opacity-10 dark:opacity-20 pointer-events-none"></div>
+
+    <div
+        class="relative z-10 flex flex-col min-h-screen transition-colors duration-500 bg-slate-50/70 dark:bg-[#0e1111] backdrop-blur-xl">
+
+        <nav class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
+            <a href="/"
+                class="text-2xl font-extrabold flex items-center gap-3 tracking-tight group cursor-pointer decoration-transparent">
+                <div
+                    class="w-11 h-11 rounded-2xl bg-emerald-500/10 dark:bg-emerald-400/5 backdrop-blur-md flex items-center justify-center border border-emerald-500/30 dark:border-emerald-400/20 shadow-lg shadow-emerald-500/10 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 relative overflow-hidden">
+                    <div
+                        class="absolute -inset-1 bg-gradient-to-tr from-emerald-400/30 to-cyan-400/30 blur-sm opacity-50 group-hover:opacity-100 transition-opacity">
+                    </div>
+                    <i class="fa-solid fa-bolt drop-shadow-md text-emerald-600 dark:text-emerald-400 relative z-10"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span
+                        class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-cyan-600 dark:from-white dark:to-emerald-300 leading-none group-hover:opacity-80 transition-opacity uppercase tracking-tight">FastdownloadLK</span>
+                    <span
+                        class="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 tracking-[0.2em] uppercase mt-0.5">By
+                        Pathum</span>
+                </div>
+            </a>
+            <button @click="toggleTheme()"
+                class="w-12 h-12 rounded-full glass-card flex items-center justify-center hover:scale-110 transition-transform shadow-md">
+                <i class="fa-solid text-xl transition-all"
+                    :class="isDarkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-indigo-600'"></i>
+            </button>
+        </nav>
+
+        <main class="flex-grow flex flex-col items-center px-4 sm:px-6 py-12 lg:py-24 w-full max-w-3xl mx-auto">
+            <div
+                class="glass-card p-10 rounded-[2.5rem] shadow-xl w-full border border-white/50 dark:border-white/10 text-center">
+                <div
+                    class="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">
+                    <i class="fa-regular fa-envelope"></i>
+                </div>
+
+                <h1 class="text-4xl font-extrabold mb-4 text-slate-900 dark:text-white">Get in Touch</h1>
+                <p class="text-slate-600 dark:text-slate-400 mb-10 max-w-md mx-auto">We'd love to hear from you. Reach
+                    out to our social media channels or send us a direct message.</p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <a href="https://www.youtube.com/@DarkLightFF-60" target="_blank" rel="noopener noreferrer"
+                        class="glass-btn p-5 rounded-3xl flex items-center gap-4 hover:bg-white/60 dark:hover:bg-white/10 transition-all card-hover text-left">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-white/50 dark:bg-black/40 text-red-500 text-xl flex items-center justify-center shadow-sm">
+                            <i class="fa-brands fa-youtube"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white">YouTube</div>
+                            <div class="text-sm text-slate-500 dark:text-slate-400">@DarkLightFF-60</div>
+                        </div>
+                    </a>
+
+                    <a href="https://www.tiktok.com/@pm_edit_973" target="_blank" rel="noopener noreferrer"
+                        class="glass-btn p-5 rounded-3xl flex items-center gap-4 hover:bg-white/60 dark:hover:bg-white/10 transition-all card-hover text-left">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-white/50 dark:bg-black/40 text-black dark:text-white text-xl flex items-center justify-center shadow-sm">
+                            <i class="fa-brands fa-tiktok"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white">TikTok</div>
+                            <div class="text-sm text-slate-500 dark:text-slate-400">@pm_edit_973</div>
+                        </div>
+                    </a>
+
+                    <a href="https://www.linkedin.com/in/pathum-sanjaya-b86155367" target="_blank"
+                        rel="noopener noreferrer"
+                        class="glass-btn p-5 rounded-3xl flex items-center gap-4 hover:bg-white/60 dark:hover:bg-white/10 transition-all card-hover text-left">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-white/50 dark:bg-black/40 text-blue-600 text-xl flex items-center justify-center shadow-sm">
+                            <i class="fa-brands fa-linkedin"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white">LinkedIn</div>
+                            <div class="text-sm text-slate-500 dark:text-slate-400">Pathum Sanjaya</div>
+                        </div>
+                    </a>
+
+                    <a href="https://web.facebook.com/PATHUMSANJAYA979" target="_blank" rel="noopener noreferrer"
+                        class="glass-btn p-5 rounded-3xl flex items-center gap-4 hover:bg-white/60 dark:hover:bg-white/10 transition-all card-hover text-left">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-white/50 dark:bg-black/40 text-blue-500 text-xl flex items-center justify-center shadow-sm">
+                            <i class="fa-brands fa-facebook"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white">Facebook</div>
+                            <div class="text-sm text-slate-500 dark:text-slate-400">P A T H U M</div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <footer
+            class="mt-auto py-6 md:py-8 glass-card border-b-0 border-x-0 mx-4 md:mx-12 lg:mx-auto max-w-7xl w-full rounded-t-[1.5rem] md:rounded-t-[2rem] text-slate-500 dark:text-slate-400 text-sm">
+            <div class="flex flex-col md:flex-row justify-between items-center px-6 md:px-12 gap-4 md:gap-5">
+                <!-- Branding -->
+                <div class="flex items-center gap-2 font-bold text-sm md:text-base text-slate-800 dark:text-slate-200">
+                    <i class="fa-solid fa-bolt text-emerald-500"></i> FastdownloadLK
+                </div>
+                <!-- Links -->
+                <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 font-medium text-[10px] md:text-xs flex-grow">
+                    <a href="/privacy.html"
+                        class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Privacy Policy</a>
+                    <a href="/terms.html"
+                        class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Terms of
+                        Service</a>
+                    <a href="/contact.html"
+                        class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Contact Us</a>
+                </div>
+                <!-- Social -->
+                <div class="flex gap-3 text-base">
+                    <a href="https://www.youtube.com/@DarkLightFF-60" target="_blank" rel="noopener noreferrer"
+                        class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors"
+                        title="YouTube"><i class="fa-brands fa-youtube"></i></a>
+                    <a href="https://www.tiktok.com/@pm_edit_973" target="_blank" rel="noopener noreferrer"
+                        class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors"
+                        title="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+                    <a href="https://www.linkedin.com/in/pathum-sanjaya-b86155367" target="_blank"
+                        rel="noopener noreferrer"
+                        class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-blue-100 hover:text-blue-700 transition-colors"
+                        title="LinkedIn"><i class="fa-brands fa-linkedin"></i></a>
+                    <a href="https://web.facebook.com/PATHUMSANJAYA979" target="_blank" rel="noopener noreferrer"
+                        class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-blue-100 hover:text-blue-500 transition-colors"
+                        title="Facebook"><i class="fa-brands fa-facebook"></i></a>
+                </div>
+            </div>
+            <div
+                class="text-center mt-6 md:mt-8 pt-6 md:pt-8 border-t border-slate-200 dark:border-slate-800 px-6 md:px-8 flex flex-col gap-1.5 md:gap-2">
+                <p class="text-[10px] md:text-sm">&copy; 2026 FastdownloadLK Downloader. All rights reserved.</p>
+                <p class="text-[8px] md:text-[10px] text-slate-400 font-semibold tracking-wide uppercase">
+                    website create by <span class="text-emerald-500 dark:text-emerald-400 font-bold">Pathum
+                        Sanjaya</span></p>
+            </div>
+        </footer>
+    </div>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="./script.js"></script>
+</body>
+
+</html>
