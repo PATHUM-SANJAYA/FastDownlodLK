@@ -188,14 +188,15 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
     req.on('close', () => {
         if (subprocess && !finished) {
-            subprocess.kill('SIGTERM');
+            subprocess.kill('SIGKILL');
         }
         finished = true;
         clearTimeout(timeout);
     });
 
     try {
-        subprocess = spawn(YTDLP_BINARY, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        // We write to a temp file, so we MUST ignore stdout. If we leave it as 'pipe' and don't read it, the buffer fills and process hangs!
+        subprocess = spawn(YTDLP_BINARY, args, { stdio: ['ignore', 'ignore', 'pipe'] });
         let stderrBuffer = '';
         subprocess.stderr.on('data', d => { stderrBuffer += d.toString(); });
 
