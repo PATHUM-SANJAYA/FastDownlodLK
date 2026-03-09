@@ -9,7 +9,7 @@ const ffmpegPath = require('ffmpeg-static');
 
 const PORT = process.env.PORT || 8002;
 const PUBLIC_DIR = __dirname;
-const YTDLP_PATH = '/tmp/yt-dlp';
+const YTDLP_PATH = path.join(os.tmpdir(), process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
 
 // ============================================================
 // Bootstrap: download yt-dlp using Node.js built-in https
@@ -36,7 +36,9 @@ function downloadFile(url, dest) {
             file.on('finish', () => {
                 file.close();
                 try {
-                    execSync(`chmod a+rx ${dest}`);
+                    if (process.platform !== 'win32') {
+                        execSync(`chmod a+rx ${dest}`);
+                    }
                     console.log(`yt-dlp downloaded and ready at ${dest}`);
                     resolve(dest);
                 } catch (e) {
