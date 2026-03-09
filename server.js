@@ -126,6 +126,11 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const ext = isAudio ? 'mp3' : 'mp4';
     const tempFile = path.join(os.tmpdir(), `dl_${tempId}.${ext}`);
 
+    const YOUTUBE_BYPASS = [
+        '--extractor-args', 'youtube:player_client=ios,web',
+        '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+    ];
+
     const args = isAudio
         ? [
             videoUrl, '--no-playlist',
@@ -133,7 +138,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             '-o', tempFile,
             '--ffmpeg-location', ffmpegPath,
             '--no-warnings',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            ...YOUTUBE_BYPASS,
         ]
         : [
             videoUrl, '--no-playlist',
@@ -142,7 +147,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             '-o', tempFile,
             '--ffmpeg-location', ffmpegPath,
             '--no-warnings',
-            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            ...YOUTUBE_BYPASS,
         ];
 
     let finished = false;

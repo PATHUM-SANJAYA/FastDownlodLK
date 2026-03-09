@@ -238,17 +238,20 @@ document.addEventListener('alpine:init', () => {
                 // Track actual progress using XMLHttpRequest
                 const xhr = new XMLHttpRequest();
                 xhr.open('GET', downloadUrl, true);
-                xhr.responseType = 'blob'; // We want a binary blob to force download
+                xhr.responseType = 'blob';
+                xhr.timeout = 3 * 60 * 1000; // 3 minute max wait
 
-                // Update the real progress bar
+                // Show status message while server is preparing
+                this.errorMessage = '';
+
                 xhr.onprogress = (event) => {
                     if (event.lengthComputable) {
                         const percentComplete = (event.loaded / event.total) * 100;
                         this.downloadProgress = Math.floor(percentComplete);
                     } else {
-                        // Fallback if content length isn't perfectly known, increment slowly based on chunks
-                        if (this.downloadProgress < 95) {
-                            this.downloadProgress += 0.5;
+                        // Server is still processing — pulse slowly up to 90%
+                        if (this.downloadProgress < 90) {
+                            this.downloadProgress = Math.min(90, this.downloadProgress + 0.2);
                         }
                     }
                 };
@@ -257,7 +260,6 @@ document.addEventListener('alpine:init', () => {
                     if (xhr.status === 200) {
                         this.downloadProgress = 100;
 
-                        // Try to extract filename from Content-Disposition header
                         let filename = 'download';
                         const disposition = xhr.getResponseHeader('Content-Disposition');
                         if (disposition && disposition.indexOf('attachment') !== -1) {
@@ -267,29 +269,23 @@ document.addEventListener('alpine:init', () => {
                                 filename = matches[1].replace(/['"]/g, '');
                             }
                         } else {
-                            // Fallback default filename logic based on title and type
                             let safeTitle = (this.videoData && this.videoData.title) ? this.videoData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'video';
                             if (safeTitle.length > 50) safeTitle = safeTitle.substring(0, 50);
                             const extension = format.quality === 'audio' ? 'mp3' : 'mp4';
                             filename = `FastDown_${safeTitle}_${format.quality}.${extension}`;
                         }
 
-                        // Create Blob URL and trigger automatic hidden download
                         const blob = xhr.response;
                         const defaultUrl = window.URL.createObjectURL(blob);
-
                         const a = document.createElement('a');
                         a.style.display = 'none';
                         a.href = defaultUrl;
                         a.download = filename;
                         document.body.appendChild(a);
                         a.click();
-
-                        // Cleanup
                         window.URL.revokeObjectURL(defaultUrl);
                         document.body.removeChild(a);
 
-                        // Reset UI after completion
                         setTimeout(() => {
                             this.isDownloading = false;
                             this.downloadProgress = 0;
@@ -297,17 +293,32 @@ document.addEventListener('alpine:init', () => {
                         }, 2000);
 
                     } else {
-                        // Error fallback
+                        // Try to read error message from JSON response
                         this.isDownloading = false;
                         this.downloadProgress = 0;
-                        this.errorMessage = 'Download failed. The server returned an error: ' + xhr.status;
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            try {
+                                const errData = JSON.parse(reader.result);
+                                this.errorMessage = errData.message || 'Download failed. Please try again.';
+                            } catch (_) {
+                                this.errorMessage = 'Download failed (server error ' + xhr.status + '). Please try again.';
+                            }
+                        };
+                        reader.readAsText(xhr.response);
                     }
+                };
+
+                xhr.ontimeout = () => {
+                    this.isDownloading = false;
+                    this.downloadProgress = 0;
+                    this.errorMessage = 'Download timed out. YouTube may be blocking this — try a shorter video or a TikTok/Instagram link.';
                 };
 
                 xhr.onerror = () => {
                     this.isDownloading = false;
                     this.downloadProgress = 0;
-                    this.errorMessage = 'Network error occurred while attempting to download.';
+                    this.errorMessage = 'Network error. Check your connection and try again.';
                 };
 
                 xhr.send();
