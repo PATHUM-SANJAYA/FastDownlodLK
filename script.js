@@ -233,7 +233,7 @@ document.addEventListener('alpine:init', () => {
                     params.set('type', 'audio');
                 }
 
-                const downloadUrl = `/api/download?${params.toString()}`;
+                const downloadUrl = `https://fastdownlodlk-backend.up.railway.app/api/download?${params.toString()}`;
 
                 // Track actual progress using XMLHttpRequest
                 const xhr = new XMLHttpRequest();
