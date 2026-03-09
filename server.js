@@ -65,7 +65,10 @@ async function ensureYtDlp() {
             execSync(`${YTDLP_PATH} --version`, { stdio: 'ignore' });
             console.log(`Using cached yt-dlp at ${YTDLP_PATH}`);
             return YTDLP_PATH;
-        } catch (_) { }
+        } catch (_) {
+            console.log(`Cached binary at ${YTDLP_PATH} failed to execute. Deleting it.`);
+            try { fs.unlinkSync(YTDLP_PATH); } catch (e) { }
+        }
     }
 
     // 3. Try bundled binary from youtube-dl-exec (make it executable)
