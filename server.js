@@ -225,8 +225,44 @@ ensureYtDlp().then((YTDLP_BINARY) => {
         }
 
         if (parsedUrl.pathname === '/health') {
+            // Also check ffmpeg
+            let ffmpegOk = false;
+            try {
+                execSync(`chmod a+rx "${ffmpegPath}"`, { stdio: 'ignore' });
+                execSync(`"${ffmpegPath}" -version`, { stdio: 'ignore' });
+                ffmpegOk = true;
+            } catch (_) { }
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            return res.end(JSON.stringify({ status: 'ok', ytdlp: YTDLP_BINARY }));
+            return res.end(JSON.stringify({ status: 'ok', ytdlp: YTDLP_BINARY, ffmpeg: ffmpegOk ? ffmpegPath : 'not found' }));
+        }
+
+        // Debug: test yt-dlp with a real TikTok URL
+        if (parsedUrl.pathname === '/api/test') {
+            const testUrl = parsedUrl.searchParams.get('url') || 'https://www.tiktok.com/@tiktok/video/7106594312292453675';
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            const testProc = spawn(YTDLP_BINARY, [
+                testUrl, '--no-playlist', '--dump-json', '--no-warnings',
+                '--extractor-args', 'youtube:player_client=ios,web',
+            ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+            let out = '', err = '';
+            testProc.stdout.on('data', d => out += d);
+            testProc.stderr.on('data', d => err += d);
+            const t = setTimeout(() => testProc.kill('SIGTERM'), 20000);
+            testProc.on('close', (code) => {
+                clearTimeout(t);
+                let parsed = null;
+                try { parsed = JSON.parse(out); } catch (_) { }
+                res.end(JSON.stringify({
+                    binary: YTDLP_BINARY,
+                    ffmpegPath,
+                    exitCode: code,
+                    title: parsed?.title || null,
+                    stderr: err.substring(0, 2000),
+                    stdout_preview: out.substring(0, 500),
+                }));
+            });
+            return;
         }
 
         if (parsedUrl.pathname === '/api/download' && req.method === 'GET') {
