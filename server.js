@@ -255,43 +255,56 @@ ensureYtDlp().then((YTDLP_BINARY) => {
         // Debug: test yt-dlp with a real download to measure time and speed
         if (parsedUrl.pathname === '/api/test') {
             const testUrl = parsedUrl.searchParams.get('url') || 'https://www.tiktok.com/@tiktok/video/7106594312292453675';
-            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+
+            // Use plain text so the browser streams it live
+            res.writeHead(200, {
+                'Content-Type': 'text/plain; charset=utf-8',
+                'Access-Control-Allow-Origin': '*',
+                'X-Content-Type-Options': 'nosniff' // force browsers to render immediately
+            });
+            res.write(`Starting yt-dlp test for url: ${testUrl}\n`);
+            res.write(`Binary: ${YTDLP_BINARY}\n`);
+            res.write(`FFMPEG: ${ffmpegPath}\n\n`);
 
             const tmpTestFile = path.join(os.tmpdir(), `test_${Math.random().toString(36).substring(2)}.mp4`);
-            const startTime = Date.now();
 
             const testProc = spawn(YTDLP_BINARY, [
                 testUrl, '--no-playlist',
                 '-o', tmpTestFile,
                 '--ffmpeg-location', ffmpegPath,
                 '--extractor-args', 'youtube:player_client=ios,web',
+                '--verbose' // Added verbose to see everything!
             ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-            let err = '';
-            testProc.stderr.on('data', d => err += d);
+            testProc.stdout.on('data', d => { res.write(`[STDOUT] ${d.toString()}`); });
+            testProc.stderr.on('data', d => { res.write(`[STDERR] ${d.toString()}`); });
 
-            const t = setTimeout(() => testProc.kill('SIGTERM'), 60000); // 60s timeout for test
+            const t = setTimeout(() => {
+                res.write('\n\n[TIMEOUT] 60s reached, killing process...\n');
+                testProc.kill('SIGKILL'); // Use SIGKILL to force die including ffmpeg
+                res.end();
+            }, 60000);
 
             testProc.on('close', (code) => {
                 clearTimeout(t);
-                const timeTaken = Date.now() - startTime;
-
-                let fileSize = 0;
+                res.write(`\n[CLOSE] yt-dlp exited with code ${code}\n`);
                 try {
                     if (fs.existsSync(tmpTestFile)) {
-                        fileSize = fs.statSync(tmpTestFile).size;
+                        const size = fs.statSync(tmpTestFile).size;
+                        res.write(`[FILE] Output file size: ${size} bytes\n`);
                         fs.unlinkSync(tmpTestFile);
+                    } else {
+                        res.write(`[FILE] Output file does not exist.\n`);
                     }
-                } catch (_) { }
+                } catch (e) {
+                    res.write(`[FILE ERROR] ${e.message}\n`);
+                }
+                res.end();
+            });
 
-                res.end(JSON.stringify({
-                    binary: YTDLP_BINARY,
-                    exitCode: code,
-                    timeTakenMs: timeTaken,
-                    fileSizeBytes: fileSize,
-                    speedBytesPerSec: fileSize / (timeTaken / 1000),
-                    stderr: err.substring(0, 3000),
-                }));
+            req.on('close', () => {
+                clearTimeout(t);
+                testProc.kill('SIGKILL');
             });
             return;
         }
