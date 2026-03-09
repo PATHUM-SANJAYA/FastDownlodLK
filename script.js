@@ -121,7 +121,7 @@ document.addEventListener('alpine:init', () => {
                 const platformInfo = this.detectPlatform(this.url);
 
                 try {
-                    const metaRes = await fetch(`/api/info?url=${encodeURIComponent(this.url)}`);
+                    const metaRes = await fetch(`https://fastdownlodlk-backend.up.railway.app/api/info?url=${encodeURIComponent(this.url)}`);
                     if (metaRes.ok) {
                         const meta = await metaRes.json();
                         if (meta.title && !meta.error) title = meta.title;
