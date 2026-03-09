@@ -130,33 +130,32 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const isAudio = type === 'audio' || quality === 'audio';
     const ext = isAudio ? 'mp3' : 'mp4';
 
-    const YOUTUBE_BYPASS = [
-        '--extractor-args', 'youtube:player_client=ios,web',
-        '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
-    ];
+    const tempId = Math.random().toString(36).substring(2, 10);
+    const tempFile = path.join(os.tmpdir(), `dl_${tempId}.${ext}`);
 
     // Direct streaming arguments
     const args = isAudio
         ? [
             videoUrl, '--no-playlist',
             '-x', '--audio-format', 'mp3', '--audio-quality', '5',
-            '-o', '-', // Stream directly to stdout
+            '-o', tempFile,
             '--ffmpeg-location', ffmpegPath,
             '--no-warnings', '--quiet',
-            ...YOUTUBE_BYPASS,
+            '--extractor-args', 'youtube:player_client=ios,web',
+            '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
         ]
         : [
             videoUrl, '--no-playlist',
             '-f', `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/b[height<=${quality}][ext=mp4]/b[height<=${quality}]`,
             '--merge-output-format', 'mp4',
-            '-o', '-', // Stream directly to stdout
+            '-o', tempFile,
             '--ffmpeg-location', ffmpegPath,
             '--no-warnings', '--quiet',
-            ...YOUTUBE_BYPASS,
+            '--extractor-args', 'youtube:player_client=ios,web',
+            '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
         ];
 
     let finished = false;
-    let headersSent = false;
     let subprocess = null;
 
     const timeout = setTimeout(() => {
@@ -171,10 +170,10 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         finished = true;
         clearTimeout(timeout);
         console.error('Download error:', err?.message || err);
-
-        if (!headersSent) {
+        if (fs.existsSync(tempFile)) fs.unlink(tempFile, () => { });
+        if (!res.headersSent) {
             res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            res.end(JSON.stringify({ status: 'error', message: 'Download failed. The video may be private, region-locked, or blocked.' }));
+            res.end(JSON.stringify({ status: 'error', message: 'Download failed.' }));
         } else {
             try { res.end(); } catch (_) { }
         }
@@ -182,7 +181,6 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
     req.on('close', () => {
         if (subprocess && !finished) {
-            console.log('Client disconnected, killing yt-dlp');
             subprocess.kill('SIGTERM');
         }
         finished = true;
@@ -191,36 +189,33 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
     try {
         subprocess = spawn(YTDLP_BINARY, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-
-        // Once data starts flowing, send headers
-        subprocess.stdout.once('data', (chunk) => {
-            if (finished) return;
-            headersSent = true;
-            res.writeHead(200, {
-                'Content-Type': isAudio ? 'audio/mpeg' : 'video/mp4',
-                'Content-Disposition': `attachment; filename="${safeTitle}.${ext}"`,
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Expose-Headers': 'Content-Disposition',
-                // Note: We cannot send Content-Length for streaming stdout
-            });
-            res.write(chunk);
-            subprocess.stdout.pipe(res);
-        });
-
         let stderrBuffer = '';
         subprocess.stderr.on('data', d => { stderrBuffer += d.toString(); });
+
         subprocess.on('error', fail);
         subprocess.on('close', (code) => {
             if (finished) return;
             finished = true;
             clearTimeout(timeout);
 
-            if (code !== 0 && !headersSent) {
-                return fail(new Error(stderrBuffer || `yt-dlp exited with code ${code}`));
+            if (code !== 0 || !fs.existsSync(tempFile)) {
+                return fail(new Error(`yt-dlp exited with code ${code}. Stderr: ${stderrBuffer}`));
             }
-            if (headersSent) {
-                res.end();
-            }
+            try {
+                const stats = fs.statSync(tempFile);
+                if (stats.size < 1000) throw new Error('File too small — likely blocked.');
+                res.writeHead(200, {
+                    'Content-Type': isAudio ? 'audio/mpeg' : 'video/mp4',
+                    'Content-Disposition': `attachment; filename="${safeTitle}.${ext}"`,
+                    'Content-Length': stats.size,
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Expose-Headers': 'Content-Disposition, Content-Length',
+                });
+                const stream = fs.createReadStream(tempFile);
+                stream.pipe(res);
+                stream.on('end', () => fs.unlink(tempFile, () => { }));
+                stream.on('error', (e) => { fs.unlink(tempFile, () => { }); });
+            } catch (err) { fail(err); }
         });
     } catch (err) { fail(err); }
 }
