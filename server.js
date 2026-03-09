@@ -135,6 +135,13 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const tempId = Math.random().toString(36).substring(2, 10);
     const tempFile = path.join(os.tmpdir(), `dl_${tempId}.${ext}`);
 
+    // Conditionally apply YouTube bypass
+    const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
+    const YOUTUBE_BYPASS = isYouTube ? [
+        '--extractor-args', 'youtube:player_client=ios,web',
+        '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)'
+    ] : [];
+
     // Direct streaming arguments
     const args = isAudio
         ? [
@@ -143,8 +150,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             '-o', tempFile,
             '--ffmpeg-location', ffmpegPath,
             '--no-warnings', '--quiet',
-            '--extractor-args', 'youtube:player_client=ios,web',
-            '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+            ...YOUTUBE_BYPASS
         ]
         : [
             videoUrl, '--no-playlist',
@@ -153,8 +159,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             '-o', tempFile,
             '--ffmpeg-location', ffmpegPath,
             '--no-warnings', '--quiet',
-            '--extractor-args', 'youtube:player_client=ios,web',
-            '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+            ...YOUTUBE_BYPASS
         ];
 
     let finished = false;
