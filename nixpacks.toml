@@ -1,0 +1,12 @@
+# FastdownloadLK Backend — Nixpacks Config for Railway
+# This tells Railway to install yt-dlp before starting the server
+
+[phases.build]
+cmds = [
+  "curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp",
+  "chmod a+rx /usr/local/bin/yt-dlp",
+  "yt-dlp --version"
+]
+
+[start]
+cmd = "node server.js"
