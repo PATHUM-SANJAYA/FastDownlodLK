@@ -275,10 +275,12 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             const testProc = spawn(YTDLP_BINARY, [
                 testUrl, '--no-playlist',
+                '-f', `bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/b[height<=720][ext=mp4]/b[height<=720]`,
+                '--merge-output-format', 'mp4',
                 '-o', tmpTestFile,
                 '--ffmpeg-location', ffmpegPath,
                 '--extractor-args', 'youtube:player_client=ios,web',
-                '--verbose' // Added verbose to see everything!
+                '--verbose'
             ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
             testProc.stdout.on('data', d => { res.write(`[STDOUT] ${d.toString()}`); });
