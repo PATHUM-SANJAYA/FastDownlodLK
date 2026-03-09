@@ -81,10 +81,13 @@ async function ensureYtDlp() {
 
     // 4. Download using Node.js built-in https (fallback — no curl/wget needed)
     console.log('Downloading yt-dlp via Node.js https...');
-    await downloadFile(
-        'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-        YTDLP_PATH
-    );
+
+    // Choose correct binary based on OS
+    const downloadUrl = process.platform === 'linux'
+        ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
+        : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+
+    await downloadFile(downloadUrl, YTDLP_PATH);
     return YTDLP_PATH;
 }
 
