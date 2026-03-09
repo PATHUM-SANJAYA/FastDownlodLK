@@ -252,30 +252,45 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             return res.end(JSON.stringify({ status: 'ok', ytdlp: YTDLP_BINARY, ffmpeg: ffmpegOk ? ffmpegPath : 'not found' }));
         }
 
-        // Debug: test yt-dlp with a real TikTok URL
+        // Debug: test yt-dlp with a real download to measure time and speed
         if (parsedUrl.pathname === '/api/test') {
             const testUrl = parsedUrl.searchParams.get('url') || 'https://www.tiktok.com/@tiktok/video/7106594312292453675';
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+
+            const tmpTestFile = path.join(os.tmpdir(), `test_${Math.random().toString(36).substring(2)}.mp4`);
+            const startTime = Date.now();
+
             const testProc = spawn(YTDLP_BINARY, [
-                testUrl, '--no-playlist', '--dump-json', '--no-warnings',
+                testUrl, '--no-playlist',
+                '-o', tmpTestFile,
+                '--ffmpeg-location', ffmpegPath,
                 '--extractor-args', 'youtube:player_client=ios,web',
             ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-            let out = '', err = '';
-            testProc.stdout.on('data', d => out += d);
+            let err = '';
             testProc.stderr.on('data', d => err += d);
-            const t = setTimeout(() => testProc.kill('SIGTERM'), 20000);
+
+            const t = setTimeout(() => testProc.kill('SIGTERM'), 60000); // 60s timeout for test
+
             testProc.on('close', (code) => {
                 clearTimeout(t);
-                let parsed = null;
-                try { parsed = JSON.parse(out); } catch (_) { }
+                const timeTaken = Date.now() - startTime;
+
+                let fileSize = 0;
+                try {
+                    if (fs.existsSync(tmpTestFile)) {
+                        fileSize = fs.statSync(tmpTestFile).size;
+                        fs.unlinkSync(tmpTestFile);
+                    }
+                } catch (_) { }
+
                 res.end(JSON.stringify({
                     binary: YTDLP_BINARY,
-                    ffmpegPath,
                     exitCode: code,
-                    title: parsed?.title || null,
-                    stderr: err.substring(0, 2000),
-                    stdout_preview: out.substring(0, 500),
+                    timeTakenMs: timeTaken,
+                    fileSizeBytes: fileSize,
+                    speedBytesPerSec: fileSize / (timeTaken / 1000),
+                    stderr: err.substring(0, 3000),
                 }));
             });
             return;
