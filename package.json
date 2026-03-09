@@ -5,7 +5,7 @@
   "description": "Premium SaaS-style social media video downloader using yt-dlp backend.",
   "main": "server.js",
   "scripts": {
-    "start": "wget -O /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp && chmod a+rx /usr/local/bin/yt-dlp && node server.js",
+    "start": "node server.js",
     "start:dev": "node server.js"
   },
   "dependencies": {
