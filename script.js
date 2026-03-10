@@ -98,10 +98,20 @@ document.addEventListener('alpine:init', () => {
                 candidate = 'https://' + candidate;
             }
             try {
-                // Throws only if truly invalid
-                // eslint-disable-next-line no-new
-                new URL(candidate);
-                this.url = candidate;
+                let parsedUrl = new URL(candidate);
+                
+                // Clean YouTube URLs to remove playlist and tracking parameters
+                if (parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be')) {
+                    // yt-dlp often fails or gets stuck when these parameters are present in API calls
+                    parsedUrl.searchParams.delete('list');
+                    parsedUrl.searchParams.delete('index');
+                    parsedUrl.searchParams.delete('start_radio');
+                    parsedUrl.searchParams.delete('feature');
+                    parsedUrl.searchParams.delete('si');
+                    parsedUrl.searchParams.delete('t');
+                }
+                
+                this.url = parsedUrl.toString();
             } catch (e) {
                 this.errorMessage = 'Invalid URL format. Please check the link.';
                 return;
