@@ -135,11 +135,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const tempId = Math.random().toString(36).substring(2, 10);
     const tempFile = path.join(os.tmpdir(), `dl_${tempId}.${ext}`);
 
-    // Conditionally apply YouTube bypass
-    const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
-    const YOUTUBE_BYPASS = isYouTube ? [
-        '--extractor-args', 'youtube:player_client=tv,mweb'
-    ] : [];
+    // Let yt-dlp auto-negotiate the best client (it defaults to android_vr when JS fails)
+    const YOUTUBE_BYPASS = [];
 
     // Direct streaming arguments
     const args = isAudio
@@ -277,15 +274,17 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             const tmpTestFile = path.join(os.tmpdir(), `test_${Math.random().toString(36).substring(2)}.mp4`);
 
+            const env = Object.assign({}, process.env);
+            env.PATH = path.dirname(process.execPath) + (process.platform === 'win32' ? ';' : ':') + (env.PATH || '');
+
             const testProc = spawn(YTDLP_BINARY, [
                 testUrl, '--no-playlist',
                 '-f', `bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/b[height<=720][ext=mp4]/b[height<=720]`,
                 '--merge-output-format', 'mp4',
                 '-o', tmpTestFile,
                 '--ffmpeg-location', ffmpegPath,
-                '--extractor-args', 'youtube:player_client=ios,web',
                 '--verbose'
-            ], { stdio: ['ignore', 'pipe', 'pipe'] });
+            ], { stdio: ['ignore', 'pipe', 'pipe'], env });
 
             testProc.stdout.on('data', d => { res.write(`[STDOUT] ${d.toString()}`); });
             testProc.stderr.on('data', d => { res.write(`[STDERR] ${d.toString()}`); });
@@ -336,8 +335,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             const subprocess = spawn(YTDLP_BINARY, [
                 videoUrl, '--no-playlist', '--dump-json', '--no-warnings',
-                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                '--extractor-args', 'youtube:player_client=tv,mweb'
+                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             ], { env });
 
             let stdoutBuffer = '';
