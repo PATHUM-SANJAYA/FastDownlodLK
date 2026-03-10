@@ -138,8 +138,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     // Conditionally apply YouTube bypass
     const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
     const YOUTUBE_BYPASS = isYouTube ? [
-        '--extractor-args', 'youtube:player_client=ios,web',
-        '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)'
+        '--extractor-args', 'youtube:player_client=tv,mweb'
     ] : [];
 
     // Direct streaming arguments
@@ -195,8 +194,12 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     });
 
     try {
+        // Ensure node is in PATH so yt-dlp can solve JS challenges
+        const env = Object.assign({}, process.env);
+        env.PATH = path.dirname(process.execPath) + (process.platform === 'win32' ? ';' : ':') + (env.PATH || '');
+
         // We write to a temp file, so we MUST ignore stdout. If we leave it as 'pipe' and don't read it, the buffer fills and process hangs!
-        subprocess = spawn(YTDLP_BINARY, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+        subprocess = spawn(YTDLP_BINARY, args, { stdio: ['ignore', 'ignore', 'pipe'], env });
         let stderrBuffer = '';
         subprocess.stderr.on('data', d => { stderrBuffer += d.toString(); });
 
@@ -328,10 +331,14 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 return res.end(JSON.stringify({ error: 'Missing url parameter' }));
             }
 
+            const env = Object.assign({}, process.env);
+            env.PATH = path.dirname(process.execPath) + (process.platform === 'win32' ? ';' : ':') + (env.PATH || '');
+
             const subprocess = spawn(YTDLP_BINARY, [
                 videoUrl, '--no-playlist', '--dump-json', '--no-warnings',
                 '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            ]);
+                '--extractor-args', 'youtube:player_client=tv,mweb'
+            ], { env });
 
             let stdoutBuffer = '';
             subprocess.stdout.on('data', c => stdoutBuffer += c);

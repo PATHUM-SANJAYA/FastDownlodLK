@@ -283,8 +283,8 @@ document.addEventListener('alpine:init', () => {
                         a.download = filename;
                         document.body.appendChild(a);
                         a.click();
-                        window.URL.revokeObjectURL(defaultUrl);
                         document.body.removeChild(a);
+                        setTimeout(() => window.URL.revokeObjectURL(defaultUrl), 1000);
 
                         setTimeout(() => {
                             this.isDownloading = false;

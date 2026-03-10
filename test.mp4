@@ -1,10 +1,10 @@
-HTTP/1.1 502 Bad Gateway
-Content-Length: 109
+HTTP/1.1 404 Not Found
+Content-Length: 101
 Content-Type: application/json
 Server: railway-edge
 X-Railway-Edge: railway/asia-southeast1-eqsg3a
 X-Railway-Fallback: true
-X-Railway-Request-Id: XhGoKj9KT-KdGE5jacI7Nw
-Date: Mon, 09 Mar 2026 20:59:17 GMT
+X-Railway-Request-Id: 26xUyBApREy-xXAKipRofQ
+Date: Mon, 09 Mar 2026 21:03:14 GMT
 
-{"status":"error","code":502,"message":"Application failed to respond","request_id":"XhGoKj9KT-KdGE5jacI7Nw"}
+{"status":"error","code":404,"message":"Application not found","request_id":"26xUyBApREy-xXAKipRofQ"}
