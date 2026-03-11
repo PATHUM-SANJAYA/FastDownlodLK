@@ -134,17 +134,20 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     }
 
     const isAudio = type === 'audio' || quality === 'audio';
-    const ext = isAudio ? 'mp3' : 'mp4';
+
+    const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
+    const isInstagram = videoUrl.includes('instagram.com');
 
     const tempId = Math.random().toString(36).substring(2, 10);
     const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
 
-    // Let yt-dlp auto-negotiate the best client
+    // Base bypass — no youtube-specific args on other platforms (causes errors)
     const GENERAL_BYPASS = [
         '--no-cache-dir',
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        '--extractor-args', 'youtube:player_client=android,ios',
-        '--force-ipv4'
+        '--force-ipv4',
+        '--socket-timeout', '30',
+        ...(isYouTube ? ['--extractor-args', 'youtube:player_client=android,ios'] : [])
     ];
 
     // Direct streaming arguments
@@ -171,12 +174,19 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     let finished = false;
     let subprocess = null;
 
+    // Instagram often hangs waiting for login — use 60s timeout instead of 5 minutes
+    const timeoutMs = isInstagram ? 60 * 1000 : 5 * 60 * 1000;
+
     const timeout = setTimeout(() => {
         if (!finished && subprocess) {
-            subprocess.kill('SIGTERM');
-            fail(new Error('Download timed out after 5 minutes.'));
+            subprocess.kill('SIGKILL');
+            fail(new Error(
+                isInstagram
+                    ? 'Instagram requires login to download — not supported on this server.'
+                    : 'Download timed out after 5 minutes.'
+            ));
         }
-    }, 5 * 60 * 1000);
+    }, timeoutMs);
 
     const fail = (err) => {
         if (finished) return;
@@ -193,8 +203,14 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
         if (!res.headersSent) {
             res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            const truncatedStderr = (err?.stderr || '').toString().slice(-500);
-            res.end(JSON.stringify({ status: 'error', message: 'Download failed.', details: err?.message || 'Unknown error', stderr: truncatedStderr }));
+            const errMsg = err?.message || 'Unknown error';
+            let userMessage = 'Download failed. Please try again.';
+            if (isInstagram || errMsg.toLowerCase().includes('instagram') || errMsg.toLowerCase().includes('login') || errMsg.toLowerCase().includes('cookie')) {
+                userMessage = 'Instagram download failed — Instagram now requires login cookies. Try a different platform.';
+            } else if (errMsg.includes('timed out')) {
+                userMessage = errMsg;
+            }
+            res.end(JSON.stringify({ status: 'error', message: userMessage }));
         } else {
             try { res.end(); } catch (_) { }
         }
@@ -235,7 +251,11 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             } catch (e) {}
 
             if (code !== 0 || !tempFile || !fs.existsSync(tempFile)) {
-                return fail(new Error(`yt-dlp exited with code ${code}. Stderr: ${stderrBuffer}`));
+                let hint = '';
+                if (stderrBuffer.toLowerCase().includes('login') || stderrBuffer.toLowerCase().includes('cookie') || stderrBuffer.toLowerCase().includes('sign in')) {
+                    hint = ' Login required.';
+                }
+                return fail(new Error(`yt-dlp exited with code ${code}.${hint} Stderr: ${stderrBuffer.slice(-300)}`));
             }
             try {
                 const stats = fs.statSync(tempFile);
@@ -368,12 +388,16 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             const env = Object.assign({}, process.env);
             env.PATH = path.dirname(process.execPath) + (process.platform === 'win32' ? ';' : ':') + (env.PATH || '');
 
-            const subprocess = spawn(YTDLP_BINARY, [
-                videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir',
+            const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
+
+            const infoArgs = [
+                videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir', '--force-ipv4',
+                '--socket-timeout', '30',
                 '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                '--extractor-args', 'youtube:player_client=android,ios',
-                '--force-ipv4'
-            ], { env });
+                ...(isYouTube ? ['--extractor-args', 'youtube:player_client=android,ios'] : [])
+            ];
+
+            const subprocess = spawn(YTDLP_BINARY, infoArgs, { env });
 
             let stdoutBuffer = '';
             subprocess.stdout.on('data', c => stdoutBuffer += c);
