@@ -165,7 +165,7 @@ document.addEventListener('alpine:init', () => {
                     setTimeout(() => {
                         const el = document.getElementById('preview-section');
                         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 10);
+                    }, 50);
                 }
             }
         },

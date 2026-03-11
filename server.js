@@ -135,11 +135,10 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const tempId = Math.random().toString(36).substring(2, 10);
     const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
 
-    // Let yt-dlp auto-negotiate the best client
+    // Let yt-dlp auto-negotiate the best client (it defaults to android_vr when JS fails)
     const GENERAL_BYPASS = [
         '--no-cache-dir',
-        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        '--impersonate-client', 'chrome'
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     ];
 
     // Direct streaming arguments
@@ -364,8 +363,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             const subprocess = spawn(YTDLP_BINARY, [
                 videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir',
-                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                '--impersonate-client', 'chrome'
+                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             ], { env });
 
             let stdoutBuffer = '';
