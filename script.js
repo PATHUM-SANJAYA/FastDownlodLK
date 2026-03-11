@@ -130,8 +130,12 @@ document.addEventListener('alpine:init', () => {
                 let rawFormats = null;
                 const platformInfo = this.detectPlatform(this.url);
 
+                const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                    ? 'http://localhost:8002'
+                    : 'https://fastdownlodlk-backend.up.railway.app';
+
                 try {
-                    const metaRes = await fetch(`https://fastdownlodlk-backend.up.railway.app/api/info?url=${encodeURIComponent(this.url)}`);
+                    const metaRes = await fetch(`${apiBase}/api/info?url=${encodeURIComponent(this.url)}`);
                     if (metaRes.ok) {
                         const meta = await metaRes.json();
                         if (meta.title && !meta.error) title = meta.title;
@@ -243,7 +247,11 @@ document.addEventListener('alpine:init', () => {
                     params.set('type', 'audio');
                 }
 
-                const downloadUrl = `https://fastdownlodlk-backend.up.railway.app/api/download?${params.toString()}`;
+                const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                    ? 'http://localhost:8002'
+                    : 'https://fastdownlodlk-backend.up.railway.app';
+
+                const downloadUrl = `${apiBase}/api/download?${params.toString()}`;
 
                 // Track actual progress using XMLHttpRequest
                 const xhr = new XMLHttpRequest();

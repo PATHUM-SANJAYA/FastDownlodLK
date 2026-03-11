@@ -9,7 +9,8 @@ const ffmpegPath = require('ffmpeg-static');
 
 const PORT = process.env.PORT || 8002;
 const PUBLIC_DIR = __dirname;
-const YTDLP_PATH = path.join(os.tmpdir(), process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+const IS_WIN = process.platform === 'win32';
+const YTDLP_PATH = path.join(os.tmpdir(), IS_WIN ? 'yt-dlp.exe' : 'yt-dlp');
 
 // ============================================================
 // Bootstrap: download yt-dlp using Node.js built-in https
@@ -36,7 +37,7 @@ function downloadFile(url, dest) {
             file.on('finish', () => {
                 file.close();
                 try {
-                    if (process.platform !== 'win32') {
+                    if (!IS_WIN) {
                         execSync(`chmod a+rx ${dest}`);
                     }
                     console.log(`yt-dlp downloaded and ready at ${dest}`);
@@ -74,11 +75,12 @@ async function ensureYtDlp() {
     }
 
     // 3. Try bundled binary from youtube-dl-exec (make it executable)
-    const bundled = path.join(__dirname, 'node_modules', 'youtube-dl-exec', 'bin', 'yt-dlp');
+    const bundledName = IS_WIN ? 'yt-dlp.exe' : 'yt-dlp';
+    const bundled = path.join(__dirname, 'node_modules', 'youtube-dl-exec', 'bin', bundledName);
     if (fs.existsSync(bundled)) {
         try {
-            execSync(`chmod a+rx ${bundled}`, { stdio: 'ignore' });
-            execSync(`${bundled} --version`, { stdio: 'ignore' });
+            if (!IS_WIN) execSync(`chmod a+rx ${bundled}`, { stdio: 'ignore' });
+            execSync(`"${bundled}" --version`, { stdio: 'ignore' });
             console.log(`Using bundled yt-dlp at ${bundled}`);
             return bundled;
         } catch (_) { }
@@ -88,9 +90,11 @@ async function ensureYtDlp() {
     console.log('Downloading yt-dlp via Node.js https...');
 
     // Choose correct binary based on OS
-    const downloadUrl = process.platform === 'linux'
-        ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
-        : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+    const downloadUrl = IS_WIN
+        ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
+        : (process.platform === 'linux'
+            ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
+            : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp');
 
     await downloadFile(downloadUrl, YTDLP_PATH);
     return YTDLP_PATH;
@@ -135,10 +139,12 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const tempId = Math.random().toString(36).substring(2, 10);
     const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
 
-    // Let yt-dlp auto-negotiate the best client (it defaults to android_vr when JS fails)
+    // Let yt-dlp auto-negotiate the best client
     const GENERAL_BYPASS = [
         '--no-cache-dir',
-        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        '--extractor-args', 'youtube:player_client=android,ios',
+        '--force-ipv4'
     ];
 
     // Direct streaming arguments
@@ -187,7 +193,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
         if (!res.headersSent) {
             res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            res.end(JSON.stringify({ status: 'error', message: 'Download failed.' }));
+            const truncatedStderr = (err?.stderr || '').toString().slice(-500);
+            res.end(JSON.stringify({ status: 'error', message: 'Download failed.', details: err?.message || 'Unknown error', stderr: truncatedStderr }));
         } else {
             try { res.end(); } catch (_) { }
         }
@@ -363,7 +370,9 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             const subprocess = spawn(YTDLP_BINARY, [
                 videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir',
-                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                '--extractor-args', 'youtube:player_client=android,ios',
+                '--force-ipv4'
             ], { env });
 
             let stdoutBuffer = '';
