@@ -162,10 +162,10 @@
                         </button>
                         <button @click="fetchVideoData()" :disabled="!url || isLoading"
                             class="flex-1 md:flex-none px-4 py-2.5 md:px-8 md:py-4 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black text-white rounded-2xl md:rounded-3xl font-bold transition-all transform hover:scale-[1.03] shadow-lg md:shadow-xl shadow-emerald-600/30 dark:shadow-emerald-500/10 flex items-center justify-center gap-1.5 md:gap-2 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed">
-                            <span x-show="!isLoading"
+                            <span x-cloak x-show="!isLoading"
                                 class="flex gap-1.5 md:gap-2 items-center text-[10px] md:text-xs uppercase tracking-wider">Download
                                 <i class="fa-solid fa-arrow-right text-[10px] md:text-xs"></i></span>
-                            <span x-show="isLoading"
+                            <span x-cloak x-show="isLoading"
                                 class="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs uppercase tracking-wider">
                                 <i class="fa-solid fa-circle-notch fa-spin"></i> Wait
                             </span>
@@ -175,7 +175,7 @@
             </div>
 
             <!-- Global Error Banner -->
-            <div x-show="errorMessage" x-transition
+            <div x-cloak x-show="errorMessage" x-transition
                 class="w-full max-w-3xl mb-8 p-4 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl flex items-center gap-3">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <span x-text="errorMessage"></span>
@@ -184,7 +184,7 @@
             </div>
 
             <!-- Loading API Animation -->
-            <div x-show="isLoading && !errorMessage" class="my-12 flex flex-col items-center justify-center"
+            <div x-cloak x-show="isLoading && !errorMessage" class="my-12 flex flex-col items-center justify-center"
                 x-transition>
                 <div class="premium-loader mb-6"></div>
                 <p

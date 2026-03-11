@@ -1,3 +1,7 @@
+[x-cloak] {
+    display: none !important;
+}
+
 /* Background Animation Layer - Refined for both modes */
 .animated-bg {
     background: linear-gradient(-45deg, #064e3b, #0e1111, #065f46, #020617);
