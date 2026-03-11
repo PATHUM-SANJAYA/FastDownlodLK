@@ -133,29 +133,33 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const ext = isAudio ? 'mp3' : 'mp4';
 
     const tempId = Math.random().toString(36).substring(2, 10);
-    const tempFile = path.join(os.tmpdir(), `dl_${tempId}.${ext}`);
+    const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
 
     // Let yt-dlp auto-negotiate the best client (it defaults to android_vr when JS fails)
-    const YOUTUBE_BYPASS = ['--no-cache-dir'];
+    const GENERAL_BYPASS = [
+        '--no-cache-dir',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    ];
 
     // Direct streaming arguments
     const args = isAudio
         ? [
             videoUrl, '--no-playlist',
             '-x', '--audio-format', 'mp3', '--audio-quality', '5',
-            '-o', tempFile,
+            '-o', tempFileTemplate,
             '--ffmpeg-location', ffmpegPath,
             '--no-warnings', '--quiet',
-            ...YOUTUBE_BYPASS
+            ...GENERAL_BYPASS
         ]
         : [
             videoUrl, '--no-playlist',
-            '-f', `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/b[height<=${quality}][ext=mp4]/b[height<=${quality}]`,
-            '--merge-output-format', 'mp4',
-            '-o', tempFile,
+            // Get best video + audio that matches the requested max height, or best single format
+            '-f', `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,
+            '--merge-output-format', 'mp4', // Try to merge to mp4 if possible
+            '-o', tempFileTemplate,
             '--ffmpeg-location', ffmpegPath,
             '--no-warnings', '--quiet',
-            ...YOUTUBE_BYPASS
+            ...GENERAL_BYPASS
         ];
 
     let finished = false;
@@ -173,7 +177,14 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         finished = true;
         clearTimeout(timeout);
         console.error('Download error:', err?.message || err);
-        if (fs.existsSync(tempFile)) fs.unlink(tempFile, () => { });
+        
+        // Try to clean up any file starting with this tempId
+        try {
+            const dirFiles = fs.readdirSync(os.tmpdir());
+            const file = dirFiles.find(f => f.startsWith(`dl_${tempId}.`));
+            if (file) fs.unlink(path.join(os.tmpdir(), file), () => {});
+        } catch (e) {}
+
         if (!res.headersSent) {
             res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
             res.end(JSON.stringify({ status: 'error', message: 'Download failed.' }));
@@ -206,15 +217,32 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             finished = true;
             clearTimeout(timeout);
 
-            if (code !== 0 || !fs.existsSync(tempFile)) {
+            // Find the actual output file generated
+            let tempFile = null;
+            try {
+                const dirFiles = fs.readdirSync(os.tmpdir());
+                const matchingFile = dirFiles.find(f => f.startsWith(`dl_${tempId}.`));
+                if (matchingFile) {
+                    tempFile = path.join(os.tmpdir(), matchingFile);
+                }
+            } catch (e) {}
+
+            if (code !== 0 || !tempFile || !fs.existsSync(tempFile)) {
                 return fail(new Error(`yt-dlp exited with code ${code}. Stderr: ${stderrBuffer}`));
             }
             try {
                 const stats = fs.statSync(tempFile);
                 if (stats.size < 1000) throw new Error('File too small — likely blocked.');
+                
+                const actualExt = path.extname(tempFile).substring(1);
+                let contentType = 'video/mp4';
+                if (actualExt === 'mp3') contentType = 'audio/mpeg';
+                else if (actualExt === 'webm') contentType = 'video/webm';
+                else if (actualExt === 'mkv') contentType = 'video/x-matroska';
+                
                 res.writeHead(200, {
-                    'Content-Type': isAudio ? 'audio/mpeg' : 'video/mp4',
-                    'Content-Disposition': `attachment; filename="${safeTitle}.${ext}"`,
+                    'Content-Type': contentType,
+                    'Content-Disposition': `attachment; filename="${safeTitle}.${actualExt}"`,
                     'Content-Length': stats.size,
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Expose-Headers': 'Content-Disposition, Content-Length',
