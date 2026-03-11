@@ -179,61 +179,17 @@ document.addEventListener('alpine:init', () => {
         },
 
         renderDownloadOptions(rawFormats, videoUrl) {
-            const defaultQualities = [
-                { quality: '180',  label: '180p',         type: 'MP4', icon: 'fa-mobile-screen',         sizeLabel: 'Small' },
-                { quality: '360',  label: '360p',         type: 'MP4', icon: 'fa-mobile-screen',         sizeLabel: 'Medium' },
-                { quality: '480',  label: '480p',         type: 'MP4', icon: 'fa-tablet-screen-button',  sizeLabel: 'Good' },
-                { quality: '720',  label: '720p HD',      type: 'MP4', icon: 'fa-desktop',               sizeLabel: 'HD' },
+            // Always show the same standard quality options for all platforms.
+            // The download handler uses 'bestvideo[height<=N]+bestaudio/best'
+            // so it will pick the best available quality up to the selected height.
+            this.formats = [
+                { quality: '180',  label: '180p',          type: 'MP4', icon: 'fa-mobile-screen',        sizeLabel: 'Small' },
+                { quality: '360',  label: '360p',          type: 'MP4', icon: 'fa-mobile-screen',        sizeLabel: 'Medium' },
+                { quality: '480',  label: '480p',          type: 'MP4', icon: 'fa-tablet-screen-button', sizeLabel: 'Good' },
+                { quality: '720',  label: '720p HD',       type: 'MP4', icon: 'fa-desktop',              sizeLabel: 'HD' },
                 { quality: '1080', label: '1080p Full HD', type: 'MP4', icon: 'fa-tv',                   sizeLabel: 'Full HD' },
                 { quality: 'audio', label: 'MP3 Audio',   type: 'MP3', icon: 'fa-headphones',            sizeLabel: 'Audio' },
             ];
-
-            // Detect YouTube — always show the standard set since android client returns limited formats
-            const isYouTube = videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'));
-
-            if (isYouTube || !rawFormats || rawFormats.length === 0) {
-                this.formats = defaultQualities;
-                return;
-            }
-
-            // For other platforms, extract unique video heights from returned formats
-            let availableHeights = rawFormats
-                .map(f => f.height)
-                .filter(h => h && h >= 144);
-
-            availableHeights = [...new Set(availableHeights)].sort((a, b) => a - b);
-
-            if (availableHeights.length === 0) {
-                this.formats = defaultQualities;
-                return;
-            }
-
-            // Limit to max 5 video qualities
-            if (availableHeights.length > 5) {
-                const len = availableHeights.length;
-                availableHeights = [
-                    availableHeights[0],
-                    availableHeights[Math.floor(len / 3)],
-                    availableHeights[Math.floor(len * 2 / 3)],
-                    availableHeights[len - 2],
-                    availableHeights[len - 1],
-                ];
-                availableHeights = [...new Set(availableHeights)];
-            }
-
-            this.formats = availableHeights.map(h => {
-                let label = h + 'p';
-                let icon = 'fa-desktop';
-                if (h <= 360) icon = 'fa-mobile-screen';
-                else if (h <= 480) icon = 'fa-tablet-screen-button';
-                if (h >= 720 && h < 1080) label += ' HD';
-                else if (h >= 1080 && h < 1440) label = h + 'p Full HD';
-                else if (h >= 1440 && h < 2160) label = h + 'p 2K';
-                else if (h >= 2160) label = h + 'p 4K';
-                return { quality: h.toString(), label, type: 'MP4', icon, sizeLabel: 'Auto' };
-            });
-
-            this.formats.push({ quality: 'audio', label: 'MP3 Audio', type: 'MP3', icon: 'fa-headphones', sizeLabel: 'Audio' });
         },
 
         async startDownload(format) {
