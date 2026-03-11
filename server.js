@@ -136,7 +136,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const tempFile = path.join(os.tmpdir(), `dl_${tempId}.${ext}`);
 
     // Let yt-dlp auto-negotiate the best client (it defaults to android_vr when JS fails)
-    const YOUTUBE_BYPASS = [];
+    const YOUTUBE_BYPASS = ['--no-cache-dir'];
 
     // Direct streaming arguments
     const args = isAudio
@@ -334,17 +334,30 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             env.PATH = path.dirname(process.execPath) + (process.platform === 'win32' ? ';' : ':') + (env.PATH || '');
 
             const subprocess = spawn(YTDLP_BINARY, [
-                videoUrl, '--no-playlist', '--dump-json', '--no-warnings',
+                videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir',
                 '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             ], { env });
 
             let stdoutBuffer = '';
             subprocess.stdout.on('data', c => stdoutBuffer += c);
             subprocess.stderr.on('data', () => { });
-            const infoTimeout = setTimeout(() => subprocess.kill('SIGTERM'), 30000);
+            const infoTimeout = setTimeout(() => subprocess.kill('SIGKILL'), 30000);
+
+            // Close subprocess tightly if client drops connection
+            req.on('close', () => {
+                if (subprocess.exitCode === null) {
+                    subprocess.kill('SIGKILL');
+                }
+            });
+
+            subprocess.on('error', () => {
+                if (subprocess.exitCode === null) subprocess.kill('SIGKILL');
+            });
 
             subprocess.on('close', async () => {
                 clearTimeout(infoTimeout);
+                if (res.headersSent) return;
+                
                 res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
                 let finalTitle = 'Video Download';
                 let finalThumbnail = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1000&auto=format&fit=crop';
