@@ -351,6 +351,10 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 ensureYtDlp().then((YTDLP_BINARY) => {
     console.log(`yt-dlp ready: ${YTDLP_BINARY}`);
 
+    // Resolve FFMPEG path at startup so downloads use the correct binary
+    checkFfmpeg();
+    console.log(`ffmpeg ready: ${FFMPEG_BINARY}`);
+
     // ============================================================
     // Auto-update yt-dlp every 6 hours to keep YouTube working
     // This is the ROOT CAUSE fix: yt-dlp goes stale -> YouTube breaks
