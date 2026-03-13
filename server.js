@@ -188,7 +188,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         '--force-ipv4',
         '--socket-timeout', '30',
-        ...(isYouTube ? ['--extractor-args', 'youtube:player_client=web,android,ios', '--no-check-extensions'] : [])
+        ...(isYouTube ? ['--extractor-args', 'youtube:player_client=ios,android,mweb', '--geo-bypass', '--no-check-certificate'] : [])
     ];
 
     // Direct streaming arguments
@@ -360,11 +360,18 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 execSync(`"${ffmpegPath}" -version`, { stdio: 'ignore' });
                 ffmpegOk = true;
             } catch (_) { }
+
+            let ytdlpVersion = 'unknown';
+            try {
+                ytdlpVersion = execSync(`"${YTDLP_BINARY}" --version`).toString().trim();
+            } catch (_) { }
+
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
             return res.end(JSON.stringify({ 
                 status: 'ok', 
-                version: '2026-03-13-v1', // Added version to verify deployment
+                version: '2026-03-13-v2', // Increment version
                 ytdlp: YTDLP_BINARY, 
+                ytdlp_version: ytdlpVersion,
                 ffmpeg: ffmpegOk ? ffmpegPath : 'not found' 
             }));
         }
@@ -450,7 +457,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir', '--force-ipv4',
                 '--socket-timeout', '30',
                 '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                ...(isYouTube ? ['--extractor-args', 'youtube:player_client=web,android,ios', '--no-check-extensions'] : [])
+                ...(isYouTube ? ['--extractor-args', 'youtube:player_client=ios,android,mweb', '--geo-bypass', '--no-check-certificate'] : [])
             ];
 
             const subprocess = spawn(YTDLP_BINARY, infoArgs, { env });
