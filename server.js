@@ -20,10 +20,15 @@ function checkFfmpeg() {
             return true;
         }
     } catch (_) {}
+    // Try to resolve system ffmpeg full path (yt-dlp needs full path for --ffmpeg-location)
     try {
-        execSync(`ffmpeg -version`, { stdio: 'ignore' });
-        FFMPEG_BINARY = 'ffmpeg';
-        return true;
+        const fullPath = execSync('which ffmpeg').toString().trim();
+        if (fullPath) {
+            execSync(`"${fullPath}" -version`, { stdio: 'ignore' });
+            FFMPEG_BINARY = fullPath;
+            console.log(`[ffmpeg] Found system ffmpeg at: ${fullPath}`);
+            return true;
+        }
     } catch (_) {}
     return false;
 }
