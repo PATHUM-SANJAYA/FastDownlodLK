@@ -209,6 +209,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         '--force-ipv4',
         '--socket-timeout', '30',
+        // Tell yt-dlp to use Node.js for solving YouTube JS challenges
+        '--js-runtimes', `node:${process.execPath}`,
         ...(isYouTube ? ['--extractor-args', 'youtube:player_client=ios,android,mweb', '--geo-bypass', '--no-check-certificate'] : [])
     ];
 
@@ -476,6 +478,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir', '--force-ipv4',
                 '--socket-timeout', '30',
                 '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                '--js-runtimes', `node:${process.execPath}`,
                 ...(isYouTube ? ['--extractor-args', 'youtube:player_client=ios,android,mweb', '--geo-bypass', '--no-check-certificate'] : [])
             ];
 
