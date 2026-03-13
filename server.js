@@ -11,6 +11,22 @@ const PORT = process.env.PORT || 8002;
 const PUBLIC_DIR = __dirname;
 const IS_WIN = process.platform === 'win32';
 const YTDLP_PATH = path.join(os.tmpdir(), IS_WIN ? 'yt-dlp.exe' : 'yt-dlp');
+let FFMPEG_BINARY = ffmpegPath;
+
+function checkFfmpeg() {
+    try {
+        if (FFMPEG_BINARY) {
+            execSync(`"${FFMPEG_BINARY}" -version`, { stdio: 'ignore' });
+            return true;
+        }
+    } catch (_) {}
+    try {
+        execSync(`ffmpeg -version`, { stdio: 'ignore' });
+        FFMPEG_BINARY = 'ffmpeg';
+        return true;
+    } catch (_) {}
+    return false;
+}
 
 // ============================================================
 // Bootstrap: download yt-dlp using Node.js built-in https
@@ -197,7 +213,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             videoUrl, '--no-playlist',
             '-x', '--audio-format', 'mp3', '--audio-quality', '5',
             '-o', tempFileTemplate,
-            '--ffmpeg-location', ffmpegPath,
+            '--ffmpeg-location', FFMPEG_BINARY,
             '--no-warnings', '--quiet',
             ...GENERAL_BYPASS
         ]
@@ -207,7 +223,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             '-f', `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,
             '--merge-output-format', 'mp4', // Try to merge to mp4 if possible
             '-o', tempFileTemplate,
-            '--ffmpeg-location', ffmpegPath,
+            '--ffmpeg-location', FFMPEG_BINARY,
             '--no-warnings', '--quiet',
             ...GENERAL_BYPASS
         ];
@@ -353,13 +369,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
         }
 
         if (parsedUrl.pathname === '/health') {
-            // Also check ffmpeg
-            let ffmpegOk = false;
-            try {
-                execSync(`chmod a+rx "${ffmpegPath}"`, { stdio: 'ignore' });
-                execSync(`"${ffmpegPath}" -version`, { stdio: 'ignore' });
-                ffmpegOk = true;
-            } catch (_) { }
+            const ffmpegOk = checkFfmpeg();
 
             let ytdlpVersion = 'unknown';
             try {
@@ -369,10 +379,10 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
             return res.end(JSON.stringify({ 
                 status: 'ok', 
-                version: '2026-03-13-v2', // Increment version
+                version: '2026-03-14-v3', // Increment version
                 ytdlp: YTDLP_BINARY, 
                 ytdlp_version: ytdlpVersion,
-                ffmpeg: ffmpegOk ? ffmpegPath : 'not found' 
+                ffmpeg: ffmpegOk ? FFMPEG_BINARY : 'not found' 
             }));
         }
 
@@ -400,7 +410,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 '-f', `bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/b[height<=720][ext=mp4]/b[height<=720]`,
                 '--merge-output-format', 'mp4',
                 '-o', tmpTestFile,
-                '--ffmpeg-location', ffmpegPath,
+                '--ffmpeg-location', FFMPEG_BINARY,
                 '--verbose'
             ], { stdio: ['ignore', 'pipe', 'pipe'], env });
 
