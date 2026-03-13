@@ -54,27 +54,63 @@ function downloadFile(url, dest) {
     });
 }
 
-async function ensureYtDlp() {
-    // 1. Try system yt-dlp
-    try {
-        execSync('yt-dlp --version', { stdio: 'ignore' });
-        console.log('Using system yt-dlp');
-        return 'yt-dlp';
-    } catch (_) { }
+// ============================================================
+// Self-update yt-dlp binary (run -U flag to get latest)
+// ============================================================
+let ytDlpUpdateInProgress = false;
 
-    // 2. Try pre-downloaded binary in /tmp
+async function updateYtDlp(binaryPath) {
+    if (ytDlpUpdateInProgress) return;
+    ytDlpUpdateInProgress = true;
+    console.log('[yt-dlp] Running self-update (-U)...');
+    return new Promise((resolve) => {
+        // On Linux we need to copy to a writable location first if it's read-only
+        const updateTarget = binaryPath === 'yt-dlp' ? YTDLP_PATH : binaryPath;
+
+        // If binary path is 'yt-dlp' (system), we update the /tmp copy instead
+        const proc = spawn(updateTarget, ['--update-to', 'stable'], { stdio: ['ignore', 'pipe', 'pipe'] });
+        let out = '';
+        proc.stdout.on('data', d => { out += d.toString(); });
+        proc.stderr.on('data', d => { out += d.toString(); });
+        proc.on('close', (code) => {
+            ytDlpUpdateInProgress = false;
+            if (code === 0 || out.includes('up to date') || out.includes('Updated')) {
+                console.log('[yt-dlp] Update result:', out.trim().slice(0, 200));
+            } else {
+                console.warn('[yt-dlp] Update exited with code', code, out.slice(0, 200));
+            }
+            resolve();
+        });
+        proc.on('error', (e) => {
+            ytDlpUpdateInProgress = false;
+            console.warn('[yt-dlp] Update error (non-fatal):', e.message);
+            resolve();
+        });
+        // Safety timeout: 2 minutes max for update
+        setTimeout(() => {
+            ytDlpUpdateInProgress = false;
+            try { proc.kill('SIGKILL'); } catch(_) {}
+            resolve();
+        }, 2 * 60 * 1000);
+    });
+}
+
+async function ensureYtDlp() {
+    // 1. Try pre-downloaded binary in /tmp (most reliable on Railway — full write access)
     if (fs.existsSync(YTDLP_PATH)) {
         try {
-            execSync(`${YTDLP_PATH} --version`, { stdio: 'ignore' });
+            execSync(`"${YTDLP_PATH}" --version`, { stdio: 'ignore' });
             console.log(`Using cached yt-dlp at ${YTDLP_PATH}`);
+            // Run update in background — don't block startup
+            updateYtDlp(YTDLP_PATH).catch(() => {});
             return YTDLP_PATH;
         } catch (_) {
-            console.log(`Cached binary at ${YTDLP_PATH} failed to execute. Deleting it.`);
+            console.log(`Cached binary at ${YTDLP_PATH} failed to execute. Re-downloading...`);
             try { fs.unlinkSync(YTDLP_PATH); } catch (e) { }
         }
     }
 
-    // 3. Try bundled binary from youtube-dl-exec (make it executable)
+    // 2. Try bundled binary from youtube-dl-exec (make it executable)
     const bundledName = IS_WIN ? 'yt-dlp.exe' : 'yt-dlp';
     const bundled = path.join(__dirname, 'node_modules', 'youtube-dl-exec', 'bin', bundledName);
     if (fs.existsSync(bundled)) {
@@ -82,14 +118,19 @@ async function ensureYtDlp() {
             if (!IS_WIN) execSync(`chmod a+rx ${bundled}`, { stdio: 'ignore' });
             execSync(`"${bundled}" --version`, { stdio: 'ignore' });
             console.log(`Using bundled yt-dlp at ${bundled}`);
+            // Copy bundled to /tmp so we can self-update it there
+            try {
+                fs.copyFileSync(bundled, YTDLP_PATH);
+                if (!IS_WIN) execSync(`chmod a+rx ${YTDLP_PATH}`, { stdio: 'ignore' });
+                updateYtDlp(YTDLP_PATH).catch(() => {});
+                return YTDLP_PATH;
+            } catch(_) {}
             return bundled;
         } catch (_) { }
     }
 
-    // 4. Download using Node.js built-in https (fallback — no curl/wget needed)
-    console.log('Downloading yt-dlp via Node.js https...');
-
-    // Choose correct binary based on OS
+    // 3. Download fresh latest binary using Node.js built-in https
+    console.log('Downloading latest yt-dlp via Node.js https...');
     const downloadUrl = IS_WIN
         ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
         : (process.platform === 'linux'
@@ -147,7 +188,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         '--force-ipv4',
         '--socket-timeout', '30',
-        ...(isYouTube ? ['--extractor-args', 'youtube:player_client=android,ios'] : [])
+        ...(isYouTube ? ['--extractor-args', 'youtube:player_client=web,android,ios', '--no-check-extensions'] : [])
     ];
 
     // Direct streaming arguments
@@ -289,6 +330,16 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 ensureYtDlp().then((YTDLP_BINARY) => {
     console.log(`yt-dlp ready: ${YTDLP_BINARY}`);
 
+    // ============================================================
+    // Auto-update yt-dlp every 6 hours to keep YouTube working
+    // This is the ROOT CAUSE fix: yt-dlp goes stale -> YouTube breaks
+    // ============================================================
+    const UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+    setInterval(() => {
+        console.log('[yt-dlp] Running scheduled auto-update...');
+        updateYtDlp(YTDLP_BINARY).catch(() => {});
+    }, UPDATE_INTERVAL_MS);
+
     const server = http.createServer(async (req, res) => {
         const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
 
@@ -394,7 +445,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir', '--force-ipv4',
                 '--socket-timeout', '30',
                 '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                ...(isYouTube ? ['--extractor-args', 'youtube:player_client=android,ios'] : [])
+                ...(isYouTube ? ['--extractor-args', 'youtube:player_client=web,android,ios', '--no-check-extensions'] : [])
             ];
 
             const subprocess = spawn(YTDLP_BINARY, infoArgs, { env });
