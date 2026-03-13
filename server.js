@@ -361,7 +361,12 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 ffmpegOk = true;
             } catch (_) { }
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            return res.end(JSON.stringify({ status: 'ok', ytdlp: YTDLP_BINARY, ffmpeg: ffmpegOk ? ffmpegPath : 'not found' }));
+            return res.end(JSON.stringify({ 
+                status: 'ok', 
+                version: '2026-03-13-v1', // Added version to verify deployment
+                ytdlp: YTDLP_BINARY, 
+                ffmpeg: ffmpegOk ? ffmpegPath : 'not found' 
+            }));
         }
 
         // Debug: test yt-dlp with a real download to measure time and speed
