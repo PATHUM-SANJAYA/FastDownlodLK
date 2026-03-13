@@ -132,7 +132,7 @@ document.addEventListener('alpine:init', () => {
 
                 const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
                     ? 'http://localhost:8002'
-                    : 'https://fastdownlodlk-backend.up.railway.app';
+                    : window.location.origin;
 
                 try {
                     const metaRes = await fetch(`${apiBase}/api/info?url=${encodeURIComponent(this.url)}`);
@@ -213,7 +213,7 @@ document.addEventListener('alpine:init', () => {
 
                 const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
                     ? 'http://localhost:8002'
-                    : 'https://fastdownlodlk-backend.up.railway.app';
+                    : window.location.origin;
 
                 const downloadUrl = `${apiBase}/api/download?${params.toString()}`;
 
