@@ -148,13 +148,15 @@ async function updateYtDlp(binaryPath) {
         const updateTarget = binaryPath === 'yt-dlp' ? YTDLP_PATH : binaryPath;
 
         // If binary path is 'yt-dlp' (system), we update the /tmp copy instead
-        const proc = spawn(updateTarget, ['--update-to', 'stable'], { stdio: ['ignore', 'pipe', 'pipe'] });
+        // We explicitly use the nightly channel here as stable gets blocked quickly on VPS IPs
+        const proc = spawn(updateTarget, ['--update-to', 'nightly'], { stdio: ['ignore', 'pipe', 'pipe'] });
         let out = '';
         proc.stdout.on('data', d => { out += d.toString(); });
         proc.stderr.on('data', d => { out += d.toString(); });
         proc.on('close', (code) => {
             ytDlpUpdateInProgress = false;
-            if (code === 0 || out.includes('up to date') || out.includes('Updated')) {
+            // Nightly updates often output "updated to" or "up to date"
+            if (code === 0 || out.toLowerCase().includes('up to date') || out.toLowerCase().includes('updated')) {
                 console.log('[yt-dlp] Update result:', out.trim().slice(0, 200));
             } else {
                 console.warn('[yt-dlp] Update exited with code', code, out.slice(0, 200));
@@ -209,15 +211,20 @@ async function ensureYtDlp() {
         } catch (_) { }
     }
 
-    // 3. Download fresh latest binary using Node.js built-in https
-    console.log('Downloading latest yt-dlp via Node.js https...');
+    // 3. Download fresh latest binary using Node.js built-in https (NIGHTLY CHANNEL)
+    console.log('Downloading latest nightly yt-dlp via Node.js https...');
     const downloadUrl = IS_WIN
-        ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
+        ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' // NOTE: Nightly exact binary names vary, but yt-dlp fallback download mechanism handles this via the -U nightly command. We just grab stable first, then force the initial update to nightly.
         : (process.platform === 'linux'
             ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
             : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp');
 
+    // Download stable first to bootstrap, but our ensureYtDlp immediately runs updateYtDlp
     await downloadFile(downloadUrl, YTDLP_PATH);
+    
+    // Force immediate switch to nightly
+    await updateYtDlp(YTDLP_PATH);
+    
     return YTDLP_PATH;
 }
 
@@ -688,16 +695,6 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
                 res.end(JSON.stringify({ title: finalTitle, thumbnail: finalThumbnail, duration, formats }));
             } else {
-                // Fallback: try microlink API for title
-                try {
-                    const fr = await fetch(`https://api.microlink.io?url=${encodeURIComponent(videoUrl)}`);
-                    if (fr.ok) {
-                        const fd = await fr.json();
-                        if (fd.data?.title) finalTitle = fd.data.title;
-                        if (fd.data?.image?.url) finalThumbnail = fd.data.image.url;
-                    }
-                } catch (_) { }
-                
                 // If it completely fails, send the detailed stderr log back to the frontend for diagnosis
                 res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
                 res.end(JSON.stringify({ error: 'Failed to fetch video info. Detailed Error below:', details: lastError.slice(-1000) }));
