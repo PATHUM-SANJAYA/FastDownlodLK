@@ -134,18 +134,38 @@ document.addEventListener('alpine:init', () => {
                     ? 'http://localhost:8002'
                     : window.location.origin;
 
-                try {
-                    const metaRes = await fetch(`${apiBase}/api/info?url=${encodeURIComponent(this.url)}`);
-                    if (metaRes.ok) {
-                        const meta = await metaRes.json();
-                        if (meta.title && !meta.error) title = meta.title;
-                        if (meta.thumbnail && !meta.error) thumbnail = meta.thumbnail;
-                        if (meta.duration && !meta.error) duration = meta.duration;
-                        if (meta.formats && meta.formats.length > 0) rawFormats = meta.formats;
+                // Retry fetching info up to 3 times - YouTube sometimes needs multiple attempts
+                const MAX_INFO_RETRIES = 3;
+                for (let attempt = 1; attempt <= MAX_INFO_RETRIES; attempt++) {
+                    try {
+                        if (attempt > 1) {
+                            this.errorMessage = `Fetching video info... (attempt ${attempt}/${MAX_INFO_RETRIES})`;
+                            await new Promise(r => setTimeout(r, 1500));
+                        }
+                        const controller = new AbortController();
+                        const infoTimeout = setTimeout(() => controller.abort(), 90000); // 90s per attempt
+                        const metaRes = await fetch(`${apiBase}/api/info?url=${encodeURIComponent(this.url)}`, { signal: controller.signal });
+                        clearTimeout(infoTimeout);
+                        if (metaRes.ok) {
+                            const meta = await metaRes.json();
+                            const gotRealTitle = meta.title && meta.title !== 'Video Download' && !meta.error;
+                            if (meta.title && !meta.error) title = meta.title;
+                            if (meta.thumbnail && !meta.error) thumbnail = meta.thumbnail;
+                            if (meta.duration && !meta.error) duration = meta.duration;
+                            if (meta.formats && meta.formats.length > 0) rawFormats = meta.formats;
+                            // If we got a real title, stop retrying
+                            if (gotRealTitle) break;
+                            // If we got 'Video Download' default, retry to see if we can do better
+                            if (attempt < MAX_INFO_RETRIES) continue;
+                        }
+                        break; // non-ok response, stop
+                    } catch (metaErr) {
+                        if (attempt === MAX_INFO_RETRIES) {
+                            // Final attempt failed, continue with defaults
+                        }
                     }
-                } catch (metaErr) {
-                    // Fail silently, we'll just use the default titles
                 }
+                this.errorMessage = ''; // Clear retry messages
 
                 // Render Preview
                 this.renderPreview({
@@ -221,10 +241,12 @@ document.addEventListener('alpine:init', () => {
                 const xhr = new XMLHttpRequest();
                 xhr.open('GET', downloadUrl, true);
                 xhr.responseType = 'blob';
-                xhr.timeout = 3 * 60 * 1000; // 3 minute max wait
+                xhr.timeout = 8 * 60 * 1000; // 8 minute max wait (1080p can take time)
 
                 // Show status message while server is preparing
                 this.errorMessage = '';
+                const qualityLabel = format.quality === 'audio' ? 'MP3' : `${format.quality}p`;
+                // Small indicator — will be cleared on success
 
                 xhr.onprogress = (event) => {
                     if (event.lengthComputable) {

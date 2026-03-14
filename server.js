@@ -218,20 +218,30 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const args = isAudio
         ? [
             videoUrl, '--no-playlist',
-            '-x', '--audio-format', 'mp3', '--audio-quality', '5',
+            // Best audio: prefer m4a/aac for conversion to mp3, fallback to any audio
+            '-f', 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+            '-x', '--audio-format', 'mp3', '--audio-quality', '0',
             '-o', tempFileTemplate,
             '--ffmpeg-location', FFMPEG_BINARY,
-            '--no-warnings', '--quiet',
+            '--no-warnings',
             ...GENERAL_BYPASS
         ]
         : [
             videoUrl, '--no-playlist',
-            // Get best video + audio that matches the requested max height, or best single format
-            '-f', `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,
-            '--merge-output-format', 'mp4', // Try to merge to mp4 if possible
+            // For each quality level, first try exact height match, then try up to that height, then best available
+            // This ensures 720p and 1080p produce genuinely different file sizes
+            '-f', [
+                `bestvideo[height=${quality}][ext=mp4]+bestaudio[ext=m4a]`,
+                `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]`,
+                `bestvideo[height=${quality}]+bestaudio`,
+                `bestvideo[height<=${quality}]+bestaudio`,
+                `best[height<=${quality}]`,
+                `best`
+            ].join('/'),
+            '--merge-output-format', 'mp4',
             '-o', tempFileTemplate,
             '--ffmpeg-location', FFMPEG_BINARY,
-            '--no-warnings', '--quiet',
+            '--no-warnings',
             ...GENERAL_BYPASS
         ];
 
@@ -474,61 +484,79 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
 
-            const infoArgs = [
-                videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir', '--force-ipv4',
-                '--socket-timeout', '30',
-                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                '--js-runtimes', `node:${process.execPath}`,
-                ...(isYouTube ? ['--extractor-args', 'youtube:player_client=ios,android,mweb', '--geo-bypass', '--no-check-certificate'] : [])
+            // Try multiple player clients in order — YouTube blocks some but not others
+            const ytPlayerClients = [
+                'ios,android,mweb',
+                'ios,web',
+                'android',
+                'ios',
             ];
 
-            const subprocess = spawn(YTDLP_BINARY, infoArgs, { env });
+            let clientDropped = false;
+            req.on('close', () => { clientDropped = true; });
 
-            let stdoutBuffer = '';
-            subprocess.stdout.on('data', c => stdoutBuffer += c);
-            subprocess.stderr.on('data', () => { });
-            const infoTimeout = setTimeout(() => subprocess.kill('SIGKILL'), 30000);
+            async function tryFetchInfo(playerClient) {
+                return new Promise((resolve) => {
+                    const infoArgs = [
+                        videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir', '--force-ipv4',
+                        '--socket-timeout', '20',
+                        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                        '--js-runtimes', `node:${process.execPath}`,
+                        ...(isYouTube ? ['--extractor-args', `youtube:player_client=${playerClient}`, '--geo-bypass', '--no-check-certificate'] : [])
+                    ];
+                    const proc = spawn(YTDLP_BINARY, infoArgs, { env });
+                    let buf = '';
+                    proc.stdout.on('data', c => buf += c);
+                    proc.stderr.on('data', () => {});
+                    // 45s timeout per attempt
+                    const t = setTimeout(() => { try { proc.kill('SIGKILL'); } catch(_) {} }, 45000);
+                    proc.on('close', () => {
+                        clearTimeout(t);
+                        try {
+                            const data = JSON.parse(buf);
+                            if (data && data.title) return resolve(data);
+                        } catch(_) {}
+                        resolve(null);
+                    });
+                    proc.on('error', () => { clearTimeout(t); resolve(null); });
+                });
+            }
 
-            // Close subprocess tightly if client drops connection
-            req.on('close', () => {
-                if (subprocess.exitCode === null) {
-                    subprocess.kill('SIGKILL');
-                }
-            });
+            // Try each player client until one succeeds
+            let infoData = null;
+            const clientList = isYouTube ? ytPlayerClients : [null];
+            for (const client of clientList) {
+                if (clientDropped || res.headersSent) return;
+                infoData = await tryFetchInfo(client || '');
+                if (infoData) break;
+            }
 
-            subprocess.on('error', () => {
-                if (subprocess.exitCode === null) subprocess.kill('SIGKILL');
-            });
+            if (res.headersSent) return;
 
-            subprocess.on('close', async () => {
-                clearTimeout(infoTimeout);
-                if (res.headersSent) return;
-                
-                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-                let finalTitle = 'Video Download';
-                let finalThumbnail = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1000&auto=format&fit=crop';
-                let duration = 'Auto';
-                let formats = [];
+            let finalTitle = 'Video Download';
+            let finalThumbnail = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1000&auto=format&fit=crop';
+            let duration = 'Auto';
+            let formats = [];
+
+            if (infoData) {
+                if (infoData.title) finalTitle = infoData.title;
+                if (infoData.thumbnail) finalThumbnail = infoData.thumbnail;
+                if (infoData.duration_string) duration = infoData.duration_string;
+                if (infoData.formats) formats = infoData.formats;
+            } else {
+                // Fallback: try microlink API for title
                 try {
-                    const data = JSON.parse(stdoutBuffer);
-                    if (data.title) finalTitle = data.title;
-                    if (data.thumbnail) finalThumbnail = data.thumbnail;
-                    if (data.duration_string) duration = data.duration_string;
-                    if (data.formats) formats = data.formats;
+                    const fr = await fetch(`https://api.microlink.io?url=${encodeURIComponent(videoUrl)}`);
+                    if (fr.ok) {
+                        const fd = await fr.json();
+                        if (fd.data?.title) finalTitle = fd.data.title;
+                        if (fd.data?.image?.url) finalThumbnail = fd.data.image.url;
+                    }
                 } catch (_) { }
+            }
 
-                if (finalTitle === 'Video Download') {
-                    try {
-                        const fr = await fetch(`https://api.microlink.io?url=${encodeURIComponent(videoUrl)}`);
-                        if (fr.ok) {
-                            const fd = await fr.json();
-                            if (fd.data?.title) finalTitle = fd.data.title;
-                            if (fd.data?.image?.url) finalThumbnail = fd.data.image.url;
-                        }
-                    } catch (_) { }
-                }
-                res.end(JSON.stringify({ title: finalTitle, thumbnail: finalThumbnail, duration, formats }));
-            });
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ title: finalTitle, thumbnail: finalThumbnail, duration, formats }));
             return;
         }
 
