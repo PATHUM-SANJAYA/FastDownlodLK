@@ -326,10 +326,10 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
     async function runDownload(attempt = 1) {
         return new Promise((resolve) => {
-            // Sequential Player Client Strategy:
-            // Attempt 1: ios,web (Best quality/stability with cookies)
-            // Attempt 2: tv_embedded (More resilient to web-based bot checks)
-            const client = attempt === 1 ? 'ios,web,android' : 'tv_embedded';
+            // Android-first Strategy (based on user research):
+            // Attempt 1: android,ios (Often bypasses PO Token blocks)
+            // Attempt 2: tv_embedded (Fallback)
+            const client = attempt === 1 ? 'android,ios,web' : 'tv_embedded';
             
             console.log(`[download] Attempt ${attempt} for ${videoUrl} using client: ${client}`);
 
@@ -574,12 +574,11 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
 
-            // Try multiple player clients in order — YouTube blocks some but not others
+            // Android-first for metadata too
             const ytPlayerClients = [
-                'ios,web,android',
+                'android,ios,web',
                 'tv_embedded,ios',
-                'android,web,mweb',
-                'web,ios',
+                'ios,web,android',
                 'tv_embedded'
             ];
 
