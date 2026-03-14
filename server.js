@@ -403,9 +403,10 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
                     const actualExt = isAudio ? 'mp3' : 'mp4';
                     let contentType = isAudio ? 'audio/mpeg' : 'video/mp4';
 
+                    const encodedFileName = encodeURIComponent(`${safeTitle}.${actualExt}`);
                     res.writeHead(200, {
                         'Content-Type': contentType,
-                        'Content-Disposition': `attachment; filename="${safeTitle}.${actualExt}"`,
+                        'Content-Disposition': `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`,
                         'Access-Control-Allow-Origin': '*',
                         'Access-Control-Expose-Headers': 'Content-Disposition'
                     });
