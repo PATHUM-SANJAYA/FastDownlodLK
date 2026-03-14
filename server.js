@@ -396,6 +396,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
                 dlArgs.push('--extractor-args', finalExtractorArgs);
             }
 
+            console.log(`[download] Executing yt-dlp with args:`, dlArgs);
             const env = Object.assign({}, process.env);
 
             const proc = spawn(YTDLP_BINARY, dlArgs, { stdio: ['ignore', 'pipe', 'pipe'], env });
