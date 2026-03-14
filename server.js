@@ -281,7 +281,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         '--force-ipv4',
         '--socket-timeout', '60',
-        '--js-runtimes', `node:${process.execPath}`,
+        '--js-runtimes', 'node', // Explicitly use node for signature extraction
         '--geo-bypass',
         '--no-check-certificate',
         ...(isYouTube && activeCookie ? ['--cookies', activeCookie] : []),
@@ -380,10 +380,10 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
     async function runDownload(attempt = 1) {
         return new Promise((resolve) => {
-            // Android-first Strategy (based on user research):
-            // Attempt 1: android,ios (Often bypasses PO Token blocks)
-            // Attempt 2: tv_embedded (Fallback)
-            const client = attempt === 1 ? 'android,ios,web' : 'tv_embedded';
+            // Android-first Strategy (optimized for restricted videos):
+            // Attempt 1: android,ios (Bypasses most PO Token/Bot blocks)
+            // Attempt 2: tv_embedded (Stable fallback)
+            const client = attempt === 1 ? 'android,ios' : 'tv_embedded';
             
             console.log(`[download] Attempt ${attempt} for ${videoUrl} using client: ${client}`);
 
@@ -645,9 +645,9 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
 
             // Android-first for metadata too
-            // Android/iOS/Web clients in a robust prioritized list
+            // android,ios prioritized for better extraction on restricted videos
             const ytPlayerClients = [
-                'android,ios,web',
+                'android,ios',
                 'tv_embedded'
             ];
 
@@ -663,7 +663,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir', '--force-ipv4',
                         '--socket-timeout', '20',
                         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                        '--js-runtimes', `node:${process.execPath}`,
+                        '--js-runtimes', 'node',
                         '--geo-bypass',
                         '--no-check-certificate',
                         ...(isYouTube && activeCookie ? ['--cookies', activeCookie] : []),
