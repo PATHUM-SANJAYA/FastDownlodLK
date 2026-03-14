@@ -289,17 +289,20 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             // Best audio: prefer m4a/aac for conversion to mp3, fallback to any audio
             '-f', 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
             '-x', '--audio-format', 'mp3', '--audio-quality', '0',
-            '-o', tempFileTemplate,
+            '-o', '-', // Stream to stdout
             '--ffmpeg-location', FFMPEG_BINARY,
             '--no-warnings', '--no-part',
             ...GENERAL_BYPASS
         ]
         : [
             videoUrl, '--no-playlist',
-            // Even more relaxed format selection for bot bypass
-            '-f', `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,
+            // For NON-YouTube, favor single-file formats (better for streaming)
+            // For YouTube, use best quality (merging handled by yt-dlp to stdout)
+            '-f', isYouTube 
+                 ? `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`
+                 : `best[height<=${quality}][ext=mp4]/best[height<=${quality}]/best`,
             '--merge-output-format', 'mp4',
-            '-o', tempFileTemplate,
+            '-o', '-', // Stream to stdout
             '--ffmpeg-location', FFMPEG_BINARY,
             '--no-warnings', '--no-part',
             ...GENERAL_BYPASS
@@ -387,51 +390,35 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
             const env = Object.assign({}, process.env);
 
-            const proc = spawn(YTDLP_BINARY, dlArgs, { stdio: ['ignore', 'ignore', 'pipe'], env });
+            const proc = spawn(YTDLP_BINARY, dlArgs, { stdio: ['ignore', 'pipe', 'pipe'], env });
             let stderr = '';
+            let headersSent = false;
+            
+            proc.stdout.on('data', () => {
+                if (!headersSent && !finished) {
+                    headersSent = true;
+                    finished = true; // Mark as "in progress" so fail() doesn't send JSON
+                    clearTimeout(timeout);
+                    
+                    const actualExt = isAudio ? 'mp3' : 'mp4';
+                    let contentType = isAudio ? 'audio/mpeg' : 'video/mp4';
+
+                    res.writeHead(200, {
+                        'Content-Type': contentType,
+                        'Content-Disposition': `attachment; filename="${safeTitle}.${actualExt}"`,
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Expose-Headers': 'Content-Disposition'
+                    });
+                }
+            });
+
+            proc.stdout.pipe(res);
             proc.stderr.on('data', d => { stderr += d.toString(); });
 
             proc.on('close', (code) => {
-                if (finished) return resolve();
-
-                // Find the output file
-                let tempFile = null;
-                try {
-                    const matchingFile = fs.readdirSync(os.tmpdir()).find(f => f.startsWith(`dl_${tempId}.`));
-                    if (matchingFile) tempFile = path.join(os.tmpdir(), matchingFile);
-                } catch (e) {}
-
-                if (code === 0 && tempFile && fs.existsSync(tempFile)) {
-                    // Success!
-                    console.log(`[download] SUCCESS on attempt ${attempt}`);
-                    finished = true;
-                    clearTimeout(timeout);
-
-                    try {
-                        const stats = fs.statSync(tempFile);
-                        const actualExt = path.extname(tempFile).substring(1);
-                        let contentType = 'video/mp4';
-                        if (actualExt === 'mp3') contentType = 'audio/mpeg';
-
-                        res.writeHead(200, {
-                            'Content-Type': contentType,
-                            'Content-Disposition': `attachment; filename="${safeTitle}.${actualExt}"`,
-                            'Content-Length': stats.size,
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Expose-Headers': 'Content-Disposition, Content-Length',
-                        });
-                        const stream = fs.createReadStream(tempFile);
-                        stream.pipe(res);
-                        stream.on('end', () => fs.unlink(tempFile, () => { }));
-                        stream.on('error', () => { try { fs.unlink(tempFile, () => { }); } catch(_) {} });
-                        resolve();
-                    } catch (err) {
-                        fail(err);
-                        resolve();
-                    }
-                } else {
+                if (!headersSent) {
                     // Fail on this attempt
-                    console.warn(`[download] Attempt ${attempt} failed. Stderr: ${stderr.slice(-200)}`);
+                    console.warn(`[download] Attempt ${attempt} failed before data. Stderr: ${stderr.slice(-200)}`);
                     
                     if (attempt < 2 && !finished) {
                         console.log('[download] Retrying with fallback client...');
@@ -440,15 +427,24 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
                         fail(new Error(`yt-dlp failed after ${attempt} attempts. ${stderr.slice(-200)}`));
                         resolve();
                     }
+                } else {
+                    console.log(`[download] Stream finished for ${videoUrl} with code ${code}`);
+                    res.end();
+                    resolve();
                 }
             });
 
             proc.on('error', (err) => {
                 console.error(`[download] Process error on attempt ${attempt}:`, err);
-                if (attempt < 2 && !finished) {
-                    runDownload(attempt + 1).then(resolve);
+                if (!headersSent) {
+                    if (attempt < 2 && !finished) {
+                        runDownload(attempt + 1).then(resolve);
+                    } else {
+                        fail(err);
+                        resolve();
+                    }
                 } else {
-                    fail(err);
+                    res.end();
                     resolve();
                 }
             });
