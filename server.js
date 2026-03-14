@@ -231,10 +231,13 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const tempId = Math.random().toString(36).substring(2, 10);
     const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
 
-    // Re-detect cookies if not set globally (failsafe)
-    if (!YT_COOKIES_FILE) YT_COOKIES_FILE = findCookieFile();
-
-    const poToken = process.env.YOUTUBE_PO_TOKEN || '';
+    // Re-detect cookies and PO Token if not set (failsafe)
+    const activeCookies = findCookieFile();
+    const poTokenFile = path.join(__dirname, 'po_token.txt');
+    let activePoToken = process.env.YOUTUBE_PO_TOKEN || '';
+    if (!activePoToken && fs.existsSync(poTokenFile)) {
+        activePoToken = fs.readFileSync(poTokenFile, 'utf8').trim();
+    }
 
     // Base bypass — no youtube-specific args on other platforms (causes errors)
     const GENERAL_BYPASS = [
@@ -246,8 +249,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         ...(isYouTube ? [
             '--geo-bypass',
             '--no-check-certificate',
-            ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : []),
-            ...(poToken ? ['--extractor-args', `youtube:po_token=web+${poToken}`] : [])
+            ...(activeCookies ? ['--cookies', activeCookies] : []),
+            ...(activePoToken ? ['--extractor-args', `youtube:po_token=web+${activePoToken}`] : [])
         ] : [])
     ];
 
@@ -265,8 +268,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         ]
         : [
             videoUrl, '--no-playlist',
-            // Improved format selection: prioritize MP4 merging but fallback to best available
-            '-f', `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${quality}][ext=mp4]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,
+            // Even more relaxed format selection for bot bypass
+            '-f', `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,
             '--merge-output-format', 'mp4',
             '-o', tempFileTemplate,
             '--ffmpeg-location', FFMPEG_BINARY,
