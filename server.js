@@ -259,47 +259,17 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
     const isInstagram = videoUrl.includes('instagram.com');
 
-    const tempId = Math.random().toString(36).substring(2, 10);
-    const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
-
     // Base bypass — no youtube-specific args on other platforms (causes errors)
     const activeCookies = findCookieFile();
-    let youtubeExtractorArgs = null;
-    if (isYouTube) {
-        const poTokenFile = path.join(__dirname, 'po_token.txt');
-        const visitorDataFile = path.join(__dirname, 'visitor_data.txt');
-        let poToken = process.env.YOUTUBE_PO_TOKEN || '';
-        let visitorData = '';
-        
-        if (!poToken && fs.existsSync(poTokenFile)) {
-            poToken = fs.readFileSync(poTokenFile, 'utf8').trim();
-        }
-        if (fs.existsSync(visitorDataFile)) {
-            visitorData = fs.readFileSync(visitorDataFile, 'utf8').trim();
-        }
-
-        // Consolidated extractor args for YouTube
-        let parts = [];
-        if (poToken) parts.push(`po_token=web.gvs+${poToken}`);
-        if (visitorData) parts.push(`visitor_data=${visitorData}`);
-        
-        if (parts.length > 0) {
-            youtubeExtractorArgs = `youtube:${parts.join(';')}`;
-        }
-    }
-
     const GENERAL_BYPASS = [
         '--no-cache-dir',
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         '--force-ipv4',
         '--socket-timeout', '60',
         '--js-runtimes', `node:${process.execPath}`,
-        ...(isYouTube ? [
-            '--geo-bypass',
-            '--no-check-certificate',
-            ...(activeCookies ? ['--cookies', activeCookies] : []),
-            ...(youtubeExtractorArgs ? ['--extractor-args', youtubeExtractorArgs] : [])
-        ] : [])
+        '--geo-bypass',
+        '--no-check-certificate',
+        ...(activeCookies ? ['--cookies', activeCookies] : [])
     ];
 
     // Direct streaming arguments
@@ -651,22 +621,20 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         '--socket-timeout', '20',
                         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                         '--js-runtimes', `node:${process.execPath}`,
-                        ...(isYouTube ? [
-                            '--geo-bypass',
-                            '--no-check-certificate',
-                            ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
-                        ] : [])
+                        '--geo-bypass',
+                        '--no-check-certificate',
+                        ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
                     ];
 
-                    let finalExtractorArgs = null;
                     if (isYouTube) {
-                        finalExtractorArgs = `youtube:player_client=${playerClient}`;
+                        // Consolidate client + PO Token args
+                        let ytArgs = `youtube:player_client=${playerClient}`;
                         const globalPo = getPoTokenArgs();
                         if (globalPo) {
                             const poParts = globalPo.split(':')[1];
-                            finalExtractorArgs += `;${poParts}`;
+                            ytArgs += `;${poParts}`;
                         }
-                        infoArgs.push('--extractor-args', finalExtractorArgs);
+                        infoArgs.push('--extractor-args', ytArgs);
                     }
 
                     const proc = spawn(YTDLP_BINARY, infoArgs, { env });
