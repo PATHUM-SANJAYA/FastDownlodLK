@@ -273,8 +273,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
     const tempId = Date.now() + Math.floor(Math.random() * 10000);
     const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
-    // For YouTube High Quality or MP3, we download to a temp file first for reliable merging/transcoding
-    const useTempFile = isYouTube && (isAudio || quality > 720);
+    // Use temp file for ALL YouTube downloads to ensure merging and signature extraction work 100% before streaming
+    const useTempFile = isYouTube;
     const downloadPath = useTempFile ? tempFileTemplate.replace('%(ext)s', isAudio ? 'mp3' : 'mp4') : '-';
 
     // Base bypass — no youtube-specific args on other platforms (causes errors)
@@ -384,10 +384,13 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
     async function runDownload(attempt = 1) {
         return new Promise((resolve) => {
-            // Android-first Strategy (optimized for restricted videos):
-            // Attempt 1: android,ios (Bypasses most PO Token/Bot blocks)
-            // Attempt 2: tv_embedded (Stable fallback)
-            const client = attempt === 1 ? 'android,ios' : 'tv_embedded';
+            // Triple-Attempt Strategy:
+            // 1. android,ios (Bypass most blocks, works for 360p and some HQ)
+            // 2. web (With the User's PO Token)
+            // 3. tv_embedded (Stable fallback for restricted content)
+            let client = 'android,ios';
+            if (attempt === 2) client = 'web';
+            if (attempt === 3) client = 'tv_embedded';
             
             console.log(`[download] Attempt ${attempt} for ${videoUrl} using client: ${client}`);
 
@@ -411,11 +414,17 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             if (isYouTube) {
                 // Merge attempt-specific client with global PO Token args
                 let finalExtractorArgs = `youtube:player_client=${client}`;
-                const globalPo = getPoTokenArgs(); // Returns "youtube:po_token=...;visitor_data=..."
+                const globalPo = getPoTokenArgs(); 
                 if (globalPo) {
-                    // Extract only the args after "youtube:"
-                    const poParts = globalPo.split(':')[1];
-                    finalExtractorArgs += `;${poParts}`;
+                    // Only apply web.gvs po_token if we are using the web client
+                    const poParts = globalPo.split(':')[1]; // po_token=...;visitor_data=...
+                    if (client === 'web') {
+                        finalExtractorArgs += `;${poParts}`;
+                    } else {
+                        // For other clients, only use visitor_data if present
+                        const visitorData = poParts.split(';').find(p => p.startsWith('visitor_data'));
+                        if (visitorData) finalExtractorArgs += `;${visitorData}`;
+                    }
                 }
                 dlArgs.push('--extractor-args', finalExtractorArgs);
             }
@@ -485,8 +494,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
                     // Fail on this attempt
                     console.warn(`[download] Attempt ${attempt} failed. Code: ${code} Stderr: ${stderr.slice(-500)}`);
                     
-                    if (attempt < 2 && !finished) {
-                        console.log('[download] Retrying with fallback client...');
+                    if (attempt < 3 && !finished) {
+                        console.log(`[download] Attempt ${attempt} failed, retrying...`);
                         runDownload(attempt + 1).then(resolve);
                     } else {
                         fail(new Error(`yt-dlp failed after ${attempt} attempts. ${stderr.slice(-500)}`));
