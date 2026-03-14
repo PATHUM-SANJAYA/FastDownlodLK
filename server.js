@@ -351,19 +351,21 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             
             console.log(`[download] Attempt ${attempt} for ${videoUrl} using client: ${client}`);
 
-            // Merge attempt-specific client with global PO Token args
-            let finalExtractorArgs = `youtube:player_client=${client}`;
-            const globalPo = getPoTokenArgs(); // Returns "youtube:po_token=...;visitor_data=..."
-            if (globalPo) {
-                // Extract only the args after "youtube:"
-                const poParts = globalPo.split(':')[1];
-                finalExtractorArgs += `;${poParts}`;
-            }
-
             const dlArgs = [
-                ...args,
-                '--extractor-args', finalExtractorArgs
+                ...args
             ];
+
+            if (isYouTube) {
+                // Merge attempt-specific client with global PO Token args
+                let finalExtractorArgs = `youtube:player_client=${client}`;
+                const globalPo = getPoTokenArgs(); // Returns "youtube:po_token=...;visitor_data=..."
+                if (globalPo) {
+                    // Extract only the args after "youtube:"
+                    const poParts = globalPo.split(':')[1];
+                    finalExtractorArgs += `;${poParts}`;
+                }
+                dlArgs.push('--extractor-args', finalExtractorArgs);
+            }
 
             const env = Object.assign({}, process.env);
 
