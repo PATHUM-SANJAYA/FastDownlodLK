@@ -13,6 +13,34 @@ const IS_WIN = process.platform === 'win32';
 const YTDLP_PATH = path.join(os.tmpdir(), IS_WIN ? 'yt-dlp.exe' : 'yt-dlp');
 let FFMPEG_BINARY = ffmpegPath;
 
+// ============================================================
+// Cookie file support (required for YouTube bot bypass)
+// ============================================================
+let YT_COOKIES_FILE = null;
+
+function findCookieFile() {
+    // 1. Explicit env var path
+    if (process.env.YOUTUBE_COOKIES_FILE && fs.existsSync(process.env.YOUTUBE_COOKIES_FILE)) {
+        return process.env.YOUTUBE_COOKIES_FILE;
+    }
+    // 2. cookies.txt next to server.js
+    const local = path.join(__dirname, 'cookies.txt');
+    if (fs.existsSync(local)) return local;
+    // 3. /tmp/cookies.txt (for Railway)
+    const tmp = path.join(os.tmpdir(), 'yt_cookies.txt');
+    if (fs.existsSync(tmp)) return tmp;
+    // 4. YOUTUBE_COOKIES env var as base64-encoded cookie content
+    if (process.env.YOUTUBE_COOKIES) {
+        try {
+            const content = Buffer.from(process.env.YOUTUBE_COOKIES, 'base64').toString('utf8');
+            fs.writeFileSync(tmp, content, 'utf8');
+            console.log('[cookies] Loaded cookies from YOUTUBE_COOKIES env var (base64) -> ' + tmp);
+            return tmp;
+        } catch(e) { console.warn('[cookies] Failed to decode YOUTUBE_COOKIES env:', e.message); }
+    }
+    return null;
+}
+
 function checkFfmpeg() {
     try {
         if (FFMPEG_BINARY) {
@@ -209,9 +237,14 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         '--force-ipv4',
         '--socket-timeout', '30',
-        // Tell yt-dlp to use Node.js for solving YouTube JS challenges
         '--js-runtimes', `node:${process.execPath}`,
-        ...(isYouTube ? ['--extractor-args', 'youtube:player_client=ios,android,mweb', '--geo-bypass', '--no-check-certificate'] : [])
+        ...(isYouTube ? [
+            '--extractor-args', 'youtube:player_client=tv_embedded,ios,mweb',
+            '--geo-bypass',
+            '--no-check-certificate',
+            // Use cookies file if available (required to bypass bot detection on server IPs)
+            ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
+        ] : [])
     ];
 
     // Direct streaming arguments
@@ -367,6 +400,15 @@ ensureYtDlp().then((YTDLP_BINARY) => {
     checkFfmpeg();
     console.log(`ffmpeg ready: ${FFMPEG_BINARY}`);
 
+    // Load YouTube cookies (required for bot bypass on server IPs)
+    YT_COOKIES_FILE = findCookieFile();
+    if (YT_COOKIES_FILE) {
+        console.log(`[cookies] Using YouTube cookies: ${YT_COOKIES_FILE}`);
+    } else {
+        console.warn('[cookies] No YouTube cookies found. YouTube downloads may fail with bot check.');
+        console.warn('[cookies] To fix: set YOUTUBE_COOKIES env var (base64 cookies.txt) on Railway.');
+    }
+
     // ============================================================
     // Auto-update yt-dlp every 6 hours to keep YouTube working
     // This is the ROOT CAUSE fix: yt-dlp goes stale -> YouTube breaks
@@ -486,9 +528,9 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             // Try multiple player clients in order — YouTube blocks some but not others
             const ytPlayerClients = [
+                'tv_embedded,ios,web',
                 'ios,android,mweb',
-                'ios,web',
-                'android',
+                'tv_embedded',
                 'ios',
             ];
 
@@ -502,7 +544,12 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         '--socket-timeout', '20',
                         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                         '--js-runtimes', `node:${process.execPath}`,
-                        ...(isYouTube ? ['--extractor-args', `youtube:player_client=${playerClient}`, '--geo-bypass', '--no-check-certificate'] : [])
+                        ...(isYouTube ? [
+                            '--extractor-args', `youtube:player_client=${playerClient}`,
+                            '--geo-bypass',
+                            '--no-check-certificate',
+                            ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
+                        ] : [])
                     ];
                     const proc = spawn(YTDLP_BINARY, infoArgs, { env });
                     let buf = '';
