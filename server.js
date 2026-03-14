@@ -23,12 +23,42 @@ function findCookieFile() {
     let explicit = process.env.YOUTUBE_COOKIES_FILE;
     if (explicit && fs.existsSync(explicit)) return explicit;
 
-    const local = path.join(__dirname, 'cookies.txt');
-    if (fs.existsSync(local)) return local;
+    const possible = ['cookies.txt', 'cookies.js', 'youtube.com_cookies.txt'];
+    for (const f of possible) {
+        const p = path.join(__dirname, f);
+        if (fs.existsSync(p)) return p;
+    }
+    return null;
+}
 
-    const tmp = path.join(os.tmpdir(), 'yt_cookies.txt');
-    if (fs.existsSync(tmp)) return tmp;
+// Support for Automated PO Token Generator
+function getPoTokenArgs() {
+    try {
+        const poTokenPath = path.join(__dirname, 'po_token.txt');
+        const visitorDataPath = path.join(__dirname, 'visitor_data.txt');
+        
+        if (fs.existsSync(poTokenPath) && fs.existsSync(visitorDataPath)) {
+            const poToken = fs.readFileSync(poTokenPath, 'utf8').trim();
+            const visitorData = fs.readFileSync(visitorDataPath, 'utf8').trim();
+            
+            if (poToken && visitorData) {
+                // Use the web client context as it's the most common for these generators
+                // Syntax: youtube:po_token=web.gvs+TOKEN;visitor_data=DATA
+                return `youtube:po_token=web.gvs+${poToken};visitor_data=${visitorData}`;
+            }
+        }
+    } catch (e) {
+        console.error('[po-token] Error reading token files:', e.message);
+    }
+    return null;
+}
 
+// This function seems to be a partial copy of the original findCookieFile's end.
+// Assuming it's meant to be a separate function for some logging or specific cookie handling.
+// If it was meant to be part of findCookieFile, the instruction was ambiguous.
+// Given the instruction's structure, it's placed as a new function.
+function findLogPath() {
+    const tmp = path.join(os.tmpdir(), 'yt_cookies.txt'); // Define tmp here as it's used below
     if (process.env.YOUTUBE_COOKIES) {
         try {
             const content = Buffer.from(process.env.YOUTUBE_COOKIES, 'base64').toString('utf8');
@@ -40,6 +70,7 @@ function findCookieFile() {
     }
     return null;
 }
+
 
 function checkFfmpeg() {
     try {
@@ -341,6 +372,11 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             const env = Object.assign({}, process.env);
             env.PATH = path.dirname(process.execPath) + (process.platform === 'win32' ? ';' : ':') + (env.PATH || '');
 
+            const poArgs = getPoTokenArgs();
+            if (poArgs) {
+                dlArgs.push('--extractor-args', poArgs);
+            }
+
             const proc = spawn(YTDLP_BINARY, dlArgs, { stdio: ['ignore', 'ignore', 'pipe'], env });
             let stderr = '';
             proc.stderr.on('data', d => { stderr += d.toString(); });
@@ -596,12 +632,18 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                         '--js-runtimes', `node:${process.execPath}`,
                         ...(isYouTube ? [
-                            '--extractor-args', `youtube:player_client=${playerClient}${poToken ? `;po_token=web+${poToken}` : ''}`,
+                            '--extractor-args', `youtube:player_client=${playerClient}`,
                             '--geo-bypass',
                             '--no-check-certificate',
                             ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
                         ] : [])
                     ];
+
+                    const poArgs = getPoTokenArgs();
+                    if (poArgs) {
+                        infoArgs.push('--extractor-args', poArgs);
+                    }
+
                     const proc = spawn(YTDLP_BINARY, infoArgs, { env });
                     let buf = '';
                     proc.stdout.on('data', c => buf += c);
