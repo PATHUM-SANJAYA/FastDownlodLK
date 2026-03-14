@@ -273,6 +273,9 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
     const tempId = Date.now() + Math.floor(Math.random() * 10000);
     const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
+    // For YouTube High Quality or MP3, we download to a temp file first for reliable merging/transcoding
+    const useTempFile = isYouTube && (isAudio || quality > 720);
+    const downloadPath = useTempFile ? tempFileTemplate.replace('%(ext)s', isAudio ? 'mp3' : 'mp4') : '-';
 
     // Base bypass — no youtube-specific args on other platforms (causes errors)
     const activeCookie = getActiveCookie();
@@ -288,14 +291,14 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         ...(isYouTube && YOUTUBE_PROXY ? ['--proxy', YOUTUBE_PROXY] : [])
     ];
 
-    // Direct streaming arguments
+    // Direct streaming or temp file arguments
     const args = isAudio
         ? [
             videoUrl, '--no-playlist',
             // Best audio: prefer m4a/aac for conversion to mp3, fallback to any audio
             '-f', 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
             '-x', '--audio-format', 'mp3', '--audio-quality', '0',
-            '-o', '-', // Stream to stdout
+            '-o', downloadPath,
             '--ffmpeg-location', FFMPEG_BINARY,
             '--no-warnings', '--no-part',
             ...GENERAL_BYPASS
@@ -306,7 +309,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             // For YouTube, use best quality (merging handled by yt-dlp to stdout)
             '-f', (() => {
                 if (isYouTube) {
-                    // Prioritize single-file MP4 for stable stdout streaming, fallback to merged
+                    // If high quality, use best combination, otherwise favor single-file mp4
+                    if (quality > 720) return `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
                     return `best[height<=${quality}][ext=mp4]/bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
                 }
                 const isFacebook = videoUrl.includes('facebook.com') || videoUrl.includes('fb.watch');
@@ -317,7 +321,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
                 return `best[height<=${quality}][ext=mp4]/best[height<=${quality}]/best`;
             })(),
             '--merge-output-format', 'mp4',
-            '-o', '-', // Stream to stdout
+            '-o', downloadPath,
             '--ffmpeg-location', FFMPEG_BINARY,
             '--no-warnings', '--no-part',
             ...GENERAL_BYPASS
@@ -423,7 +427,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             let headersSent = false;
             
             proc.stdout.on('data', () => {
-                if (!headersSent && !finished) {
+                if (!useTempFile && !headersSent && !finished) {
                     headersSent = true;
                     finished = true; // Mark as "in progress" so fail() doesn't send JSON
                     clearTimeout(timeout);
@@ -441,11 +445,43 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
                 }
             });
 
-            proc.stdout.pipe(res);
+            if (!useTempFile) {
+                proc.stdout.pipe(res);
+            }
             proc.stderr.on('data', d => { stderr += d.toString(); });
 
             proc.on('close', (code) => {
                 if (!headersSent) {
+                    if (code === 0 && useTempFile) {
+                        // Success! Stream the file
+                        headersSent = true;
+                        finished = true;
+                        clearTimeout(timeout);
+
+                        const actualExt = isAudio ? 'mp3' : 'mp4';
+                        let contentType = isAudio ? 'audio/mpeg' : 'video/mp4';
+                        const finalPath = downloadPath;
+                        
+                        if (fs.existsSync(finalPath)) {
+                            const stats = fs.statSync(finalPath);
+                            const encodedFileName = encodeURIComponent(`${safeTitle}.${actualExt}`);
+                            res.writeHead(200, {
+                                'Content-Type': contentType,
+                                'Content-Disposition': `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`,
+                                'Content-Length': stats.size,
+                                'Access-Control-Allow-Origin': '*',
+                                'Access-Control-Expose-Headers': 'Content-Disposition'
+                            });
+                            const readStream = fs.createReadStream(finalPath);
+                            readStream.pipe(res);
+                            readStream.on('end', () => {
+                                fs.unlink(finalPath, () => {});
+                                resolve();
+                            });
+                            return;
+                        }
+                    }
+
                     // Fail on this attempt
                     console.warn(`[download] Attempt ${attempt} failed. Code: ${code} Stderr: ${stderr.slice(-500)}`);
                     
@@ -453,12 +489,12 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
                         console.log('[download] Retrying with fallback client...');
                         runDownload(attempt + 1).then(resolve);
                     } else {
-                        fail(new Error(`yt-dlp failed after ${attempt} attempts. ${stderr.slice(-200)}`));
+                        fail(new Error(`yt-dlp failed after ${attempt} attempts. ${stderr.slice(-500)}`));
                         resolve();
                     }
                 } else {
                     console.log(`[download] Stream finished for ${videoUrl} with code ${code}`);
-                    res.end();
+                    if (!useTempFile) res.end();
                     resolve();
                 }
             });
