@@ -291,7 +291,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             '-x', '--audio-format', 'mp3', '--audio-quality', '0',
             '-o', tempFileTemplate,
             '--ffmpeg-location', FFMPEG_BINARY,
-            '--no-warnings',
+            '--no-warnings', '--no-part',
             ...GENERAL_BYPASS
         ]
         : [
@@ -301,7 +301,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             '--merge-output-format', 'mp4',
             '-o', tempFileTemplate,
             '--ffmpeg-location', FFMPEG_BINARY,
-            '--no-warnings',
+            '--no-warnings', '--no-part',
             ...GENERAL_BYPASS
         ];
 
@@ -338,15 +338,23 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
         if (!res.headersSent) {
             res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            let userMessage = 'Download failed. YouTube might be blocking this attempt.';
-            if (isInstagram || errMsg.toLowerCase().includes('instagram') || errMsg.toLowerCase().includes('login') || errMsg.toLowerCase().includes('cookie')) {
-                userMessage = 'Download failed — this platform requires fresh login cookies.';
-            } else if (errMsg.includes('timed out')) {
-                userMessage = 'Download timed out. The file might be too large or the server is slow.';
-            } else if (errMsg.includes('Sign in to confirm')) {
+            const errLower = errMsg.toLowerCase();
+            let userMessage = 'Download failed. Please try again.';
+            // Only show cookie error for Instagram or explicit login-required errors (not just URL mentions of cookies)
+            const isLoginError = errLower.includes('sign in') || errLower.includes('login required') || errLower.includes('private video');
+            const isCookieError = isInstagram || (isLoginError && (errLower.includes('cookie') || errLower.includes('authentication')));
+            if (isCookieError) {
+                userMessage = 'Download failed — this platform requires login. Instagram is not supported.';
+            } else if (errLower.includes('sign in to confirm') || errLower.includes('bot')) {
                 userMessage = 'YouTube Bot Block: Please update cookies.txt with fresh cookies from your browser.';
+            } else if (errLower.includes('timed out') || errMsg.includes('timed out')) {
+                userMessage = 'Download timed out. The file might be too large or the server is slow.';
+            } else if (isYouTube) {
+                userMessage = 'YouTube download failed. The server may be blocked — try again in a moment.';
+            } else {
+                userMessage = 'Download failed. Please check the URL and try again.';
             }
-            res.end(JSON.stringify({ status: 'error', message: userMessage, details: errMsg.slice(0, 100) }));
+            res.end(JSON.stringify({ status: 'error', message: userMessage, details: errMsg.slice(0, 150) }));
         } else {
             try { res.end(); } catch (_) { }
         }
