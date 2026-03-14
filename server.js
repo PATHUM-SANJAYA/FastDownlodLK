@@ -446,7 +446,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             proc.on('close', (code) => {
                 if (!headersSent) {
                     // Fail on this attempt
-                    console.warn(`[download] Attempt ${attempt} failed before data. Stderr: ${stderr.slice(-200)}`);
+                    console.warn(`[download] Attempt ${attempt} failed. Code: ${code} Stderr: ${stderr.slice(-500)}`);
                     
                     if (attempt < 2 && !finished) {
                         console.log('[download] Retrying with fallback client...');
@@ -710,8 +710,10 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 const result = await tryFetchInfo(client || '', i + 1);
                 if (result && result.success) {
                     infoData = result.data;
+                    console.log(`[info] Success with client: ${client || 'default'}`);
                     break;
                 } else if (result) {
+                    console.error(`[info] Client ${client || 'default'} failed: ${result.error.slice(-200)}`);
                     lastError += `\n[Client: ${client || 'default'}] ${result.error}`;
                 }
             }
