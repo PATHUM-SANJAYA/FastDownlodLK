@@ -274,11 +274,9 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--force-ipv4',
         '--socket-timeout', '60',
         '--js-runtimes', `node:${process.execPath}`,
-        ...(isYouTube ? [
-            '--geo-bypass',
-            '--no-check-certificate',
-            ...(activeCookies ? ['--cookies', activeCookies] : [])
-        ] : [])
+        '--geo-bypass',
+        '--no-check-certificate',
+        ...(isYouTube && activeCookies ? ['--cookies', activeCookies] : [])
     ];
 
     // Direct streaming arguments
