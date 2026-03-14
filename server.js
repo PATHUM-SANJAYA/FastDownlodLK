@@ -19,24 +19,24 @@ let FFMPEG_BINARY = ffmpegPath;
 let YT_COOKIES_FILE = null;
 
 function findCookieFile() {
-    // 1. Explicit env var path
-    if (process.env.YOUTUBE_COOKIES_FILE && fs.existsSync(process.env.YOUTUBE_COOKIES_FILE)) {
-        return process.env.YOUTUBE_COOKIES_FILE;
-    }
-    // 2. cookies.txt next to server.js
+    // Re-check on every call if not found yet (handles uploads without restart)
+    let explicit = process.env.YOUTUBE_COOKIES_FILE;
+    if (explicit && fs.existsSync(explicit)) return explicit;
+
     const local = path.join(__dirname, 'cookies.txt');
     if (fs.existsSync(local)) return local;
-    // 3. /tmp/cookies.txt (for Railway)
+
     const tmp = path.join(os.tmpdir(), 'yt_cookies.txt');
     if (fs.existsSync(tmp)) return tmp;
-    // 4. YOUTUBE_COOKIES env var as base64-encoded cookie content
+
     if (process.env.YOUTUBE_COOKIES) {
         try {
             const content = Buffer.from(process.env.YOUTUBE_COOKIES, 'base64').toString('utf8');
-            fs.writeFileSync(tmp, content, 'utf8');
-            console.log('[cookies] Loaded cookies from YOUTUBE_COOKIES env var (base64) -> ' + tmp);
-            return tmp;
-        } catch(e) { console.warn('[cookies] Failed to decode YOUTUBE_COOKIES env:', e.message); }
+            if (content.length > 10) {
+                fs.writeFileSync(tmp, content, 'utf8');
+                return tmp;
+            }
+        } catch(e) {}
     }
     return null;
 }
@@ -231,6 +231,11 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const tempId = Math.random().toString(36).substring(2, 10);
     const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
 
+    // Re-detect cookies if not set globally (failsafe)
+    if (!YT_COOKIES_FILE) YT_COOKIES_FILE = findCookieFile();
+
+    const poToken = process.env.YOUTUBE_PO_TOKEN || '';
+
     // Base bypass — no youtube-specific args on other platforms (causes errors)
     const GENERAL_BYPASS = [
         '--no-cache-dir',
@@ -239,11 +244,10 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--socket-timeout', '60',
         '--js-runtimes', `node:${process.execPath}`,
         ...(isYouTube ? [
-            // Using 'ios,web' for downloads is reliable with cookies
-            '--extractor-args', 'youtube:player_client=ios,web,android',
             '--geo-bypass',
             '--no-check-certificate',
-            ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
+            ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : []),
+            ...(poToken ? ['--extractor-args', `youtube:po_token=web+${poToken}`] : [])
         ] : [])
     ];
 
@@ -456,6 +460,22 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             return res.end();
         }
 
+        if (parsedUrl.pathname === '/debug-status') {
+            const hasCookies = !!findCookieFile();
+            const hasPoToken = !!process.env.YOUTUBE_PO_TOKEN;
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            return res.end(JSON.stringify({ 
+                status: 'ok', 
+                cookies_found: hasCookies,
+                cookies_path: YT_COOKIES_FILE,
+                po_token_found: hasPoToken,
+                yt_dlp_binary: YTDLP_BINARY,
+                platform: process.platform,
+                arch: process.arch,
+                node_version: process.version
+            }));
+        }
+
         if (parsedUrl.pathname === '/health') {
             const ffmpegOk = checkFfmpeg();
 
@@ -564,6 +584,9 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             req.on('close', () => { clientDropped = true; });
 
             async function tryFetchInfo(playerClient) {
+                if (!YT_COOKIES_FILE) YT_COOKIES_FILE = findCookieFile();
+                const poToken = process.env.YOUTUBE_PO_TOKEN || '';
+
                 return new Promise((resolve) => {
                     const infoArgs = [
                         videoUrl, '--no-playlist', '--dump-json', '--no-warnings', '--no-cache-dir', '--force-ipv4',
@@ -571,7 +594,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                         '--js-runtimes', `node:${process.execPath}`,
                         ...(isYouTube ? [
-                            '--extractor-args', `youtube:player_client=${playerClient}`,
+                            '--extractor-args', `youtube:player_client=${playerClient}${poToken ? `;po_token=web+${poToken}` : ''}`,
                             '--geo-bypass',
                             '--no-check-certificate',
                             ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])

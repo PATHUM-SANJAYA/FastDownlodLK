@@ -319,7 +319,7 @@ document.addEventListener('alpine:init', () => {
                         reader.onload = () => {
                             try {
                                 const errData = JSON.parse(reader.result);
-                                this.errorMessage = errData.message || 'Download failed. Please try again.';
+                                this.errorMessage = errData.message + (errData.details ? ` Details: ${errData.details}` : '');
                             } catch (_) {
                                 this.errorMessage = 'Download failed (server error ' + xhr.status + '). Please try again.';
                             }
