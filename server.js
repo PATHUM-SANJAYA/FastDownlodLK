@@ -266,6 +266,9 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
     const isInstagram = videoUrl.includes('instagram.com');
 
+    const tempId = Date.now() + Math.floor(Math.random() * 10000);
+    const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
+
     // Base bypass — no youtube-specific args on other platforms (causes errors)
     const activeCookies = findCookieFile();
     const GENERAL_BYPASS = [
@@ -632,7 +635,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         '--js-runtimes', `node:${process.execPath}`,
                         '--geo-bypass',
                         '--no-check-certificate',
-                        ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
+                        ...(isYouTube && YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
                     ];
 
                     if (isYouTube) {
