@@ -215,15 +215,15 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const videoUrl = parsedUrl.searchParams.get('url');
     const quality = parsedUrl.searchParams.get('quality') || '720';
     const type = parsedUrl.searchParams.get('type') || 'video';
-    const rawTitle = parsedUrl.searchParams.get('title') || 'download';
-    const safeTitle = rawTitle.replace(/[^a-z0-9 -]/gi, '_').substring(0, 150);
-
+    
     if (!videoUrl) {
         res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         return res.end(JSON.stringify({ status: 'error', message: 'Missing url parameter.' }));
     }
 
     const isAudio = type === 'audio' || quality === 'audio';
+    const rawTitle = parsedUrl.searchParams.get('title') || 'video';
+    const safeTitle = rawTitle.replace(/[\\/:"*?<>|]/g, '_').substring(0, 100) || 'download';
 
     const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
     const isInstagram = videoUrl.includes('instagram.com');
@@ -239,11 +239,10 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--socket-timeout', '60',
         '--js-runtimes', `node:${process.execPath}`,
         ...(isYouTube ? [
-            // Using 'ios,web' for downloads is often more stable than tv_embedded when cookies are present
+            // Using 'ios,web' for downloads is reliable with cookies
             '--extractor-args', 'youtube:player_client=ios,web,android',
             '--geo-bypass',
             '--no-check-certificate',
-            // Use cookies file if available (required to bypass bot detection on server IPs)
             ...(YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
         ] : [])
     ];

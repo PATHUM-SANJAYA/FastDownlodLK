@@ -180,17 +180,31 @@ document.addEventListener('alpine:init', () => {
                 this.renderDownloadOptions(rawFormats, this.url);
 
             } catch (error) {
-                this.errorMessage = 'Unable to prepare video preview. Please check the link and try again.';
+                console.error('Metadata fetch error:', error);
+                this.errorMessage = 'Could not fetch video details, but you can still try downloading below.';
+                
+                // Fallback rendering so the user is NEVER stuck
+                this.renderPreview({
+                    title: 'Video Stream',
+                    thumbnail: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1000&auto=format&fit=crop',
+                    duration: 'Unknown',
+                    platform: platformInfo,
+                    originalUrl: this.url
+                });
+                this.renderDownloadOptions(null, this.url);
             } finally {
                 this.isLoading = false;
 
-                // Smooth scroll to results
-                if (this.videoData) {
-                    setTimeout(() => {
-                        const el = document.getElementById('preview-section');
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 50);
+                // Even if totally failed, ensure options are there
+                if (!this.formats || this.formats.length === 0) {
+                    this.renderDownloadOptions(null, this.url);
                 }
+
+                // Smooth scroll to results
+                setTimeout(() => {
+                    const el = document.getElementById('preview-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
             }
         },
 
