@@ -641,29 +641,36 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
                     const proc = spawn(YTDLP_BINARY, infoArgs, { env });
                     let buf = '';
+                    let errBuf = '';
                     proc.stdout.on('data', c => buf += c);
-                    proc.stderr.on('data', () => {});
+                    proc.stderr.on('data', c => errBuf += c);
                     // 45s timeout per attempt
                     const t = setTimeout(() => { try { proc.kill('SIGKILL'); } catch(_) {} }, 45000);
                     proc.on('close', () => {
                         clearTimeout(t);
                         try {
                             const data = JSON.parse(buf);
-                            if (data && data.title) return resolve(data);
+                            if (data && data.title) return resolve({ success: true, data });
                         } catch(_) {}
-                        resolve(null);
+                        resolve({ success: false, error: errBuf });
                     });
-                    proc.on('error', () => { clearTimeout(t); resolve(null); });
+                    proc.on('error', (e) => { clearTimeout(t); resolve({ success: false, error: e.message }); });
                 });
             }
 
             // Try each player client until one succeeds
             let infoData = null;
+            let lastError = '';
             const clientList = isYouTube ? ytPlayerClients : [null];
             for (const client of clientList) {
                 if (clientDropped || res.headersSent) return;
-                infoData = await tryFetchInfo(client || '');
-                if (infoData) break;
+                const result = await tryFetchInfo(client || '');
+                if (result && result.success) {
+                    infoData = result.data;
+                    break;
+                } else if (result) {
+                    lastError += `\n[Client: ${client || 'default'}] ${result.error}`;
+                }
             }
 
             if (res.headersSent) return;
@@ -678,6 +685,8 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                 if (infoData.thumbnail) finalThumbnail = infoData.thumbnail;
                 if (infoData.duration_string) duration = infoData.duration_string;
                 if (infoData.formats) formats = infoData.formats;
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify({ title: finalTitle, thumbnail: finalThumbnail, duration, formats }));
             } else {
                 // Fallback: try microlink API for title
                 try {
@@ -688,10 +697,11 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         if (fd.data?.image?.url) finalThumbnail = fd.data.image.url;
                     }
                 } catch (_) { }
+                
+                // If it completely fails, send the detailed stderr log back to the frontend for diagnosis
+                res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify({ error: 'Failed to fetch video info. Detailed Error below:', details: lastError.slice(-1000) }));
             }
-
-            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            res.end(JSON.stringify({ title: finalTitle, thumbnail: finalThumbnail, duration, formats }));
             return;
         }
 
