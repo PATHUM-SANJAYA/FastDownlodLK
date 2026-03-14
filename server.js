@@ -15,21 +15,26 @@ let FFMPEG_BINARY = ffmpegPath;
 
 // ============================================================
 // Cookie file support (required for YouTube bot bypass)
+// Supports multiple files for rotation: cookies.txt, cookies1.txt, cookies2.txt, etc.
 // ============================================================
-let YT_COOKIES_FILE = null;
-
-function findCookieFile() {
-    // Re-check on every call if not found yet (handles uploads without restart)
-    let explicit = process.env.YOUTUBE_COOKIES_FILE;
-    if (explicit && fs.existsSync(explicit)) return explicit;
-
-    const possible = ['cookies.txt', 'cookies.js', 'youtube.com_cookies.txt'];
+function findCookieFiles() {
+    const files = [];
+    const possible = ['cookies.txt', 'cookies1.txt', 'cookies2.txt', 'cookies3.txt', 'youtube.com_cookies.txt'];
     for (const f of possible) {
         const p = path.join(__dirname, f);
-        if (fs.existsSync(p)) return p;
+        if (fs.existsSync(p)) files.push(p);
     }
-    return null;
+    return files;
 }
+
+function getActiveCookie(attempt = 1) {
+    const files = findCookieFiles();
+    if (files.length === 0) return null;
+    // Simple rotation or random selection
+    return files[(attempt - 1) % files.length];
+}
+
+const YOUTUBE_PROXY = process.env.YOUTUBE_PROXY || null;
 
 // Support for Automated PO Token Generator
 function getPoTokenArgs() {
@@ -270,7 +275,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
     const tempFileTemplate = path.join(os.tmpdir(), `dl_${tempId}.%(ext)s`);
 
     // Base bypass — no youtube-specific args on other platforms (causes errors)
-    const activeCookies = findCookieFile();
+    const activeCookie = getActiveCookie();
     const GENERAL_BYPASS = [
         '--no-cache-dir',
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -279,7 +284,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--js-runtimes', `node:${process.execPath}`,
         '--geo-bypass',
         '--no-check-certificate',
-        ...(isYouTube && activeCookies ? ['--cookies', activeCookies] : [])
+        ...(isYouTube && activeCookie ? ['--cookies', activeCookie] : []),
+        ...(isYouTube && YOUTUBE_PROXY ? ['--proxy', YOUTUBE_PROXY] : [])
     ];
 
     // Direct streaming arguments
@@ -383,6 +389,19 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             const dlArgs = [
                 ...args
             ];
+
+            // Re-apply cookies for this specific attempt if we have rotation
+            if (isYouTube) {
+                const currentCookie = getActiveCookie(attempt);
+                if (currentCookie) {
+                    // Remove any existing --cookies from base args if present
+                    const cookieIdx = dlArgs.indexOf('--cookies');
+                    if (cookieIdx !== -1) {
+                        dlArgs.splice(cookieIdx, 2);
+                    }
+                    dlArgs.push('--cookies', currentCookie);
+                }
+            }
 
             if (isYouTube) {
                 // Merge attempt-specific client with global PO Token args
@@ -636,8 +655,8 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             let clientDropped = false;
             req.on('close', () => { clientDropped = true; });
 
-            async function tryFetchInfo(playerClient) {
-                if (!YT_COOKIES_FILE) YT_COOKIES_FILE = findCookieFile();
+            async function tryFetchInfo(playerClient, attempt = 1) {
+                const activeCookie = getActiveCookie(attempt);
                 const poToken = process.env.YOUTUBE_PO_TOKEN || '';
 
                 return new Promise((resolve) => {
@@ -648,7 +667,8 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         '--js-runtimes', `node:${process.execPath}`,
                         '--geo-bypass',
                         '--no-check-certificate',
-                        ...(isYouTube && YT_COOKIES_FILE ? ['--cookies', YT_COOKIES_FILE] : [])
+                        ...(isYouTube && activeCookie ? ['--cookies', activeCookie] : []),
+                        ...(isYouTube && YOUTUBE_PROXY ? ['--proxy', YOUTUBE_PROXY] : [])
                     ];
 
                     if (isYouTube) {
@@ -684,10 +704,10 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             // Try each player client until one succeeds
             let infoData = null;
             let lastError = '';
-            const clientList = isYouTube ? ytPlayerClients : [null];
-            for (const client of clientList) {
+            for (let i = 0; i < clientList.length; i++) {
+                const client = clientList[i];
                 if (clientDropped || res.headersSent) return;
-                const result = await tryFetchInfo(client || '');
+                const result = await tryFetchInfo(client || '', i + 1);
                 if (result && result.success) {
                     infoData = result.data;
                     break;
