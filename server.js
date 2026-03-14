@@ -503,12 +503,11 @@ ensureYtDlp().then((YTDLP_BINARY) => {
     console.log(`ffmpeg ready: ${FFMPEG_BINARY}`);
 
     // Load YouTube cookies (required for bot bypass on server IPs)
-    YT_COOKIES_FILE = findCookieFile();
-    if (YT_COOKIES_FILE) {
-        console.log(`[cookies] Using YouTube cookies: ${YT_COOKIES_FILE}`);
+    const cookieFiles = findCookieFiles();
+    if (cookieFiles.length > 0) {
+        console.log(`[cookies] Found ${cookieFiles.length} cookie files for rotation.`);
     } else {
         console.warn('[cookies] No YouTube cookies found. YouTube downloads may fail with bot check.');
-        console.warn('[cookies] To fix: set YOUTUBE_COOKIES env var (base64 cookies.txt) on Railway.');
     }
 
     // ============================================================
@@ -534,13 +533,13 @@ ensureYtDlp().then((YTDLP_BINARY) => {
         }
 
         if (parsedUrl.pathname === '/debug-status') {
-            const hasCookies = !!findCookieFile();
+            const cookies = findCookieFiles();
             const hasPoToken = !!process.env.YOUTUBE_PO_TOKEN;
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
             return res.end(JSON.stringify({ 
                 status: 'ok', 
-                cookies_found: hasCookies,
-                cookies_path: YT_COOKIES_FILE,
+                cookies_found: cookies.length > 0,
+                cookies_count: cookies.length,
                 po_token_found: hasPoToken,
                 yt_dlp_binary: YTDLP_BINARY,
                 platform: process.platform,
