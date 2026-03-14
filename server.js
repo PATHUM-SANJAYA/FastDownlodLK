@@ -298,9 +298,17 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             videoUrl, '--no-playlist',
             // For NON-YouTube, favor single-file formats (better for streaming)
             // For YouTube, use best quality (merging handled by yt-dlp to stdout)
-            '-f', isYouTube 
-                 ? `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`
-                 : `best[height<=${quality}][ext=mp4]/best[height<=${quality}]/best`,
+            '-f', (() => {
+                if (isYouTube) {
+                    return `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
+                }
+                const isFacebook = videoUrl.includes('facebook.com') || videoUrl.includes('fb.watch');
+                if (isFacebook) {
+                    // Facebook specific: use hd/sd labels since height is often missing
+                    return (quality > 480) ? 'hd/sd/best' : 'sd/best[height<=480]/best';
+                }
+                return `best[height<=${quality}][ext=mp4]/best[height<=${quality}]/best`;
+            })(),
             '--merge-output-format', 'mp4',
             '-o', '-', // Stream to stdout
             '--ffmpeg-location', FFMPEG_BINARY,
