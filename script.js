@@ -163,11 +163,12 @@ document.addEventListener('alpine:init', () => {
                         if (attempt === MAX_INFO_RETRIES) {
                             // Final attempt failed, continue with defaults
                         }
+                        console.warn('[metadata] failed to fetch from server.js info endpoint:', metaErr);
                     }
                 }
                 this.errorMessage = ''; // Clear retry messages
 
-                // Render Preview
+                // Render Preview immediately, even if metadata is still default
                 this.renderPreview({
                     title: title,
                     thumbnail: thumbnail,
@@ -176,19 +177,19 @@ document.addEventListener('alpine:init', () => {
                     originalUrl: this.url
                 });
 
-                // Render dynamic formats mapping
+                // ALWAYS render download options - this is the FAIL-SAFE
                 this.renderDownloadOptions(rawFormats, this.url);
 
             } catch (error) {
-                console.error('Metadata fetch error:', error);
+                console.error('fetchVideoData global catch:', error);
                 this.errorMessage = 'Could not fetch video details, but you can still try downloading below.';
                 
-                // Fallback rendering so the user is NEVER stuck
+                // Fallback rendering
                 this.renderPreview({
-                    title: 'Video Stream',
+                    title: 'Video Download',
                     thumbnail: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1000&auto=format&fit=crop',
-                    duration: 'Unknown',
-                    platform: platformInfo,
+                    duration: 'Auto',
+                    platform: this.detectPlatform(this.url),
                     originalUrl: this.url
                 });
                 this.renderDownloadOptions(null, this.url);

@@ -291,7 +291,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         if (finished) return;
         finished = true;
         clearTimeout(timeout);
-        console.error('Download error:', err?.message || err);
+        const errMsg = err?.message || err || 'Unknown error';
+        console.error(`[download] Error for ${videoUrl}:`, errMsg);
         
         // Try to clean up any file starting with this tempId
         try {
@@ -302,84 +303,116 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
 
         if (!res.headersSent) {
             res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            const errMsg = err?.message || 'Unknown error';
-            let userMessage = 'Download failed. Please try again.';
+            let userMessage = 'Download failed. YouTube might be blocking this attempt.';
             if (isInstagram || errMsg.toLowerCase().includes('instagram') || errMsg.toLowerCase().includes('login') || errMsg.toLowerCase().includes('cookie')) {
-                userMessage = 'Instagram download failed — Instagram now requires login cookies. Try a different platform.';
+                userMessage = 'Download failed — this platform requires fresh login cookies.';
             } else if (errMsg.includes('timed out')) {
-                userMessage = errMsg;
+                userMessage = 'Download timed out. The file might be too large or the server is slow.';
+            } else if (errMsg.includes('Sign in to confirm')) {
+                userMessage = 'YouTube Bot Block: Please update cookies.txt with fresh cookies from your browser.';
             }
-            res.end(JSON.stringify({ status: 'error', message: userMessage }));
+            res.end(JSON.stringify({ status: 'error', message: userMessage, details: errMsg.slice(0, 100) }));
         } else {
             try { res.end(); } catch (_) { }
         }
     };
 
+    async function runDownload(attempt = 1) {
+        return new Promise((resolve) => {
+            // Sequential Player Client Strategy:
+            // Attempt 1: ios,web (Best quality/stability with cookies)
+            // Attempt 2: tv_embedded (More resilient to web-based bot checks)
+            const client = attempt === 1 ? 'ios,web,android' : 'tv_embedded';
+            
+            console.log(`[download] Attempt ${attempt} for ${videoUrl} using client: ${client}`);
+
+            const dlArgs = [
+                ...args,
+                '--extractor-args', `youtube:player_client=${client}`
+            ];
+
+            const env = Object.assign({}, process.env);
+            env.PATH = path.dirname(process.execPath) + (process.platform === 'win32' ? ';' : ':') + (env.PATH || '');
+
+            const proc = spawn(YTDLP_BINARY, dlArgs, { stdio: ['ignore', 'ignore', 'pipe'], env });
+            let stderr = '';
+            proc.stderr.on('data', d => { stderr += d.toString(); });
+
+            proc.on('close', (code) => {
+                if (finished) return resolve();
+
+                // Find the output file
+                let tempFile = null;
+                try {
+                    const matchingFile = fs.readdirSync(os.tmpdir()).find(f => f.startsWith(`dl_${tempId}.`));
+                    if (matchingFile) tempFile = path.join(os.tmpdir(), matchingFile);
+                } catch (e) {}
+
+                if (code === 0 && tempFile && fs.existsSync(tempFile)) {
+                    // Success!
+                    console.log(`[download] SUCCESS on attempt ${attempt}`);
+                    finished = true;
+                    clearTimeout(timeout);
+
+                    try {
+                        const stats = fs.statSync(tempFile);
+                        const actualExt = path.extname(tempFile).substring(1);
+                        let contentType = 'video/mp4';
+                        if (actualExt === 'mp3') contentType = 'audio/mpeg';
+
+                        res.writeHead(200, {
+                            'Content-Type': contentType,
+                            'Content-Disposition': `attachment; filename="${safeTitle}.${actualExt}"`,
+                            'Content-Length': stats.size,
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Expose-Headers': 'Content-Disposition, Content-Length',
+                        });
+                        const stream = fs.createReadStream(tempFile);
+                        stream.pipe(res);
+                        stream.on('end', () => fs.unlink(tempFile, () => { }));
+                        stream.on('error', () => { try { fs.unlink(tempFile, () => { }); } catch(_) {} });
+                        resolve();
+                    } catch (err) {
+                        fail(err);
+                        resolve();
+                    }
+                } else {
+                    // Fail on this attempt
+                    console.warn(`[download] Attempt ${attempt} failed. Stderr: ${stderr.slice(-200)}`);
+                    
+                    if (attempt < 2 && !finished) {
+                        console.log('[download] Retrying with fallback client...');
+                        runDownload(attempt + 1).then(resolve);
+                    } else {
+                        fail(new Error(`yt-dlp failed after ${attempt} attempts. ${stderr.slice(-200)}`));
+                        resolve();
+                    }
+                }
+            });
+
+            proc.on('error', (err) => {
+                console.error(`[download] Process error on attempt ${attempt}:`, err);
+                if (attempt < 2 && !finished) {
+                    runDownload(attempt + 1).then(resolve);
+                } else {
+                    fail(err);
+                    resolve();
+                }
+            });
+
+            // Link the root subprocess to this attempt for timeout killing
+            subprocess = proc;
+        });
+    }
+
     req.on('close', () => {
-        if (subprocess && !finished) {
-            subprocess.kill('SIGKILL');
-        }
+        if (subprocess && !finished) subprocess.kill('SIGKILL');
         finished = true;
         clearTimeout(timeout);
     });
 
-    try {
-        // Ensure node is in PATH so yt-dlp can solve JS challenges
-        const env = Object.assign({}, process.env);
-        env.PATH = path.dirname(process.execPath) + (process.platform === 'win32' ? ';' : ':') + (env.PATH || '');
-
-        // We write to a temp file, so we MUST ignore stdout. If we leave it as 'pipe' and don't read it, the buffer fills and process hangs!
-        subprocess = spawn(YTDLP_BINARY, args, { stdio: ['ignore', 'ignore', 'pipe'], env });
-        let stderrBuffer = '';
-        subprocess.stderr.on('data', d => { stderrBuffer += d.toString(); });
-
-        subprocess.on('error', fail);
-        subprocess.on('close', (code) => {
-            if (finished) return;
-            finished = true;
-            clearTimeout(timeout);
-
-            // Find the actual output file generated
-            let tempFile = null;
-            try {
-                const dirFiles = fs.readdirSync(os.tmpdir());
-                const matchingFile = dirFiles.find(f => f.startsWith(`dl_${tempId}.`));
-                if (matchingFile) {
-                    tempFile = path.join(os.tmpdir(), matchingFile);
-                }
-            } catch (e) {}
-
-            if (code !== 0 || !tempFile || !fs.existsSync(tempFile)) {
-                let hint = '';
-                if (stderrBuffer.toLowerCase().includes('login') || stderrBuffer.toLowerCase().includes('cookie') || stderrBuffer.toLowerCase().includes('sign in')) {
-                    hint = ' Login required.';
-                }
-                return fail(new Error(`yt-dlp exited with code ${code}.${hint} Stderr: ${stderrBuffer.slice(-300)}`));
-            }
-            try {
-                const stats = fs.statSync(tempFile);
-                if (stats.size < 1000) throw new Error('File too small — likely blocked.');
-                
-                const actualExt = path.extname(tempFile).substring(1);
-                let contentType = 'video/mp4';
-                if (actualExt === 'mp3') contentType = 'audio/mpeg';
-                else if (actualExt === 'webm') contentType = 'video/webm';
-                else if (actualExt === 'mkv') contentType = 'video/x-matroska';
-                
-                res.writeHead(200, {
-                    'Content-Type': contentType,
-                    'Content-Disposition': `attachment; filename="${safeTitle}.${actualExt}"`,
-                    'Content-Length': stats.size,
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Expose-Headers': 'Content-Disposition, Content-Length',
-                });
-                const stream = fs.createReadStream(tempFile);
-                stream.pipe(res);
-                stream.on('end', () => fs.unlink(tempFile, () => { }));
-                stream.on('error', (e) => { fs.unlink(tempFile, () => { }); });
-            } catch (err) { fail(err); }
-        });
-    } catch (err) { fail(err); }
+    // Start the download chain
+    runDownload(1).catch(fail);
 }
 
 // ============================================================
@@ -520,10 +553,11 @@ ensureYtDlp().then((YTDLP_BINARY) => {
 
             // Try multiple player clients in order — YouTube blocks some but not others
             const ytPlayerClients = [
-                'tv_embedded,ios,web',
-                'ios,android,mweb',
-                'tv_embedded',
-                'ios',
+                'ios,web,android',
+                'tv_embedded,ios',
+                'android,web,mweb',
+                'web,ios',
+                'tv_embedded'
             ];
 
             let clientDropped = false;
