@@ -236,10 +236,11 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--no-cache-dir',
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         '--force-ipv4',
-        '--socket-timeout', '30',
+        '--socket-timeout', '60',
         '--js-runtimes', `node:${process.execPath}`,
         ...(isYouTube ? [
-            '--extractor-args', 'youtube:player_client=tv_embedded,ios,mweb',
+            // Using 'ios,web' for downloads is often more stable than tv_embedded when cookies are present
+            '--extractor-args', 'youtube:player_client=ios,web,android',
             '--geo-bypass',
             '--no-check-certificate',
             // Use cookies file if available (required to bypass bot detection on server IPs)
@@ -261,16 +262,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         ]
         : [
             videoUrl, '--no-playlist',
-            // For each quality level, first try exact height match, then try up to that height, then best available
-            // This ensures 720p and 1080p produce genuinely different file sizes
-            '-f', [
-                `bestvideo[height=${quality}][ext=mp4]+bestaudio[ext=m4a]`,
-                `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]`,
-                `bestvideo[height=${quality}]+bestaudio`,
-                `bestvideo[height<=${quality}]+bestaudio`,
-                `best[height<=${quality}]`,
-                `best`
-            ].join('/'),
+            // Improved format selection: prioritize MP4 merging but fallback to best available
+            '-f', `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${quality}][ext=mp4]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,
             '--merge-output-format', 'mp4',
             '-o', tempFileTemplate,
             '--ffmpeg-location', FFMPEG_BINARY,
