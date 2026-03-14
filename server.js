@@ -34,7 +34,16 @@ function getActiveCookie(attempt = 1) {
     return files[(attempt - 1) % files.length];
 }
 
-const YOUTUBE_PROXY = process.env.YOUTUBE_PROXY || null;
+// Working SOCKS5 proxy from user list + Oracle-friendly fallbacks
+const YOUTUBE_PROXIES = [
+    'socks5://103.189.218.158:1080', // Verified working for YouTube bypass
+    process.env.YOUTUBE_PROXY
+].filter(Boolean);
+
+function getActiveProxy(attempt = 1) {
+    if (YOUTUBE_PROXIES.length === 0) return null;
+    return YOUTUBE_PROXIES[(attempt - 1) % YOUTUBE_PROXIES.length];
+}
 
 // Support for Automated PO Token Generator
 function getPoTokenArgs() {
@@ -288,7 +297,7 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
         '--geo-bypass',
         '--no-check-certificate',
         ...(isYouTube && activeCookie ? ['--cookies', activeCookie] : []),
-        ...(isYouTube && YOUTUBE_PROXY ? ['--proxy', YOUTUBE_PROXY] : [])
+        ...(isYouTube && getActiveProxy() ? ['--proxy', getActiveProxy()] : [])
     ];
 
     // Direct streaming or temp file arguments
@@ -398,16 +407,20 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
                 ...args
             ];
 
-            // Re-apply cookies for this specific attempt if we have rotation
+            // Re-apply cookies and proxies for this specific attempt if we have rotation
             if (isYouTube) {
                 const currentCookie = getActiveCookie(attempt);
                 if (currentCookie) {
-                    // Remove any existing --cookies from base args if present
                     const cookieIdx = dlArgs.indexOf('--cookies');
-                    if (cookieIdx !== -1) {
-                        dlArgs.splice(cookieIdx, 2);
-                    }
+                    if (cookieIdx !== -1) dlArgs.splice(cookieIdx, 2);
                     dlArgs.push('--cookies', currentCookie);
+                }
+
+                const currentProxy = getActiveProxy(attempt);
+                if (currentProxy) {
+                    const proxyIdx = dlArgs.indexOf('--proxy');
+                    if (proxyIdx !== -1) dlArgs.splice(proxyIdx, 2);
+                    dlArgs.push('--proxy', currentProxy);
                 }
             }
 
@@ -712,7 +725,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                         '--geo-bypass',
                         '--no-check-certificate',
                         ...(isYouTube && activeCookie ? ['--cookies', activeCookie] : []),
-                        ...(isYouTube && YOUTUBE_PROXY ? ['--proxy', YOUTUBE_PROXY] : [])
+                        ...(isYouTube && getActiveProxy() ? ['--proxy', getActiveProxy()] : [])
                     ];
 
                     if (isYouTube) {
