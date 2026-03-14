@@ -703,6 +703,7 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             // Try each player client until one succeeds
             let infoData = null;
             let lastError = '';
+            const clientList = isYouTube ? ytPlayerClients : [null];
             for (let i = 0; i < clientList.length; i++) {
                 const client = clientList[i];
                 if (clientDropped || res.headersSent) return;
