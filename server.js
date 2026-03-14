@@ -306,7 +306,8 @@ async function handleDownload(parsedUrl, req, res, YTDLP_BINARY) {
             // For YouTube, use best quality (merging handled by yt-dlp to stdout)
             '-f', (() => {
                 if (isYouTube) {
-                    return `bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
+                    // Prioritize single-file MP4 for stable stdout streaming, fallback to merged
+                    return `best[height<=${quality}][ext=mp4]/bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
                 }
                 const isFacebook = videoUrl.includes('facebook.com') || videoUrl.includes('fb.watch');
                 if (isFacebook) {
@@ -644,10 +645,9 @@ ensureYtDlp().then((YTDLP_BINARY) => {
             const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
 
             // Android-first for metadata too
+            // Android/iOS/Web clients in a robust prioritized list
             const ytPlayerClients = [
                 'android,ios,web',
-                'tv_embedded,ios',
-                'ios,web,android',
                 'tv_embedded'
             ];
 
@@ -688,13 +688,19 @@ ensureYtDlp().then((YTDLP_BINARY) => {
                     proc.stderr.on('data', c => errBuf += c);
                     // 45s timeout per attempt
                     const t = setTimeout(() => { try { proc.kill('SIGKILL'); } catch(_) {} }, 45000);
-                    proc.on('close', () => {
+                    proc.on('close', (code) => {
                         clearTimeout(t);
                         try {
-                            const data = JSON.parse(buf);
-                            if (data && data.title) return resolve({ success: true, data });
+                            // Find the JSON block if there's extra text/warnings in stdout
+                            const startIndex = buf.indexOf('{');
+                            const endIndex = buf.lastIndexOf('}');
+                            if (startIndex !== -1 && endIndex !== -1) {
+                                const jsonStr = buf.substring(startIndex, endIndex + 1);
+                                const data = JSON.parse(jsonStr);
+                                if (data && data.title) return resolve({ success: true, data });
+                            }
                         } catch(_) {}
-                        resolve({ success: false, error: errBuf });
+                        resolve({ success: false, error: errBuf || 'Failed to parse yt-dlp output' });
                     });
                     proc.on('error', (e) => { clearTimeout(t); resolve({ success: false, error: e.message }); });
                 });
