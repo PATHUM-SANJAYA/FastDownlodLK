@@ -10,6 +10,9 @@
     "gen-po": "node generate_po.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
     "debug": "^4.3.6",
     "ffmpeg-static": "^5.3.0",
     "youtube-dl-exec": "^3.1.3",

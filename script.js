@@ -276,7 +276,20 @@ document.addEventListener('alpine:init', () => {
 
                 const downloadUrl = `${apiBase}/api/download?${params.toString()}`;
 
-                // Track actual progress using XMLHttpRequest
+                // NATIVE CAPACITOR APP - Hand over directly to Android OS DownloadManager
+                if (window.Capacitor && window.Capacitor.Plugins.Browser) {
+                    window.Capacitor.Plugins.Browser.open({ url: downloadUrl });
+                    
+                    // The OS takes over instantly, so we can reset UI
+                    setTimeout(() => {
+                        this.isDownloading = false;
+                        this.selectedFormat = '';
+                        this.downloadProgress = 0;
+                    }, 500);
+                    return; // Skip Web XHR logic
+                }
+
+                // WEB / PWA APP - Track actual progress using XMLHttpRequest
                 const xhr = new XMLHttpRequest();
                 xhr.open('GET', downloadUrl, true);
                 xhr.responseType = 'blob';

@@ -38,12 +38,19 @@ jobs:
       - name: Install Capacitor
         run: |
           npm install @capacitor/core
+          npm install @capacitor/browser @capacitor/app
           npm install @capacitor/cli @capacitor/android -D
 
       - name: Initialize Capacitor Project
         run: |
           npx cap init "FastdownloadLK" "com.pathum.fastdownloadlk" --web-dir www
           npx cap add android
+
+      - name: Generate Native App Logos
+        run: |
+          npm install @capacitor/assets -D
+          cp assets/icon-512.png assets/logo.png
+          npx @capacitor/assets generate --android --iconBackgroundColor '#10b981'
 
       - name: Fix Kotlin Duplicate Classes
         run: |
