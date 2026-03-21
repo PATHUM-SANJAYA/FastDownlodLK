@@ -37,9 +37,9 @@ jobs:
 
       - name: Install Capacitor
         run: |
-          npm install @capacitor/core
-          npm install @capacitor/browser @capacitor/app
-          npm install @capacitor/cli @capacitor/android -D
+          npm install @capacitor/core@6
+          npm install @capacitor/browser@6 @capacitor/app@6
+          npm install @capacitor/cli@6 @capacitor/android@6 -D
 
       - name: Initialize Capacitor Project
         run: |
