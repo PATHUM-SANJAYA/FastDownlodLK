@@ -9,6 +9,8 @@ const STATIC_ASSETS = [
     '/script.js',
     '/manifest.json',
     '/assets/icon.svg',
+    '/assets/icon-192.png',
+    '/assets/icon-512.png',
     // External CDNs to cache optionally (fonts, tailwind, fontawesome, alpine)
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
