@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=0">
     <title>FastdownloadLK | Universal Video Downloader</title>
     <meta name="description"
         content="Download videos from YouTube, TikTok, Instagram and Facebook in HD or MP3 instantly.">
@@ -68,7 +68,7 @@
         class="relative z-10 flex flex-col min-h-screen transition-colors duration-500 bg-slate-50/70 dark:bg-[#0e1111] backdrop-blur-xl">
 
         <!-- Navbar -->
-        <nav class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex justify-between items-center"
+        <nav class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[clamp(1rem,env(safe-area-inset-top),3rem)] pb-4 sm:py-6 flex justify-between items-center"
             data-aos="fade-down" data-aos-duration="800">
             <a href="/"
                 class="text-xl sm:text-2xl font-extrabold flex items-center gap-2 sm:gap-3 tracking-tight group cursor-pointer decoration-transparent">
@@ -523,7 +523,7 @@
     </div>
 
     <!-- Mobile Bottom Navigation -->
-    <div class="md:hidden fixed bottom-0 w-full z-50 bg-white/80 dark:bg-[#0e1111]/80 backdrop-blur-xl border-t border-slate-200 dark:border-white/10 pb-[env(safe-area-inset-bottom)]">
+    <div class="md:hidden fixed bottom-0 w-full z-50 bg-white/80 dark:bg-[#0e1111]/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/10 pb-[clamp(0.5rem,env(safe-area-inset-bottom),2rem)]">
         <div class="flex justify-around items-center px-2 py-1.5">
             <a href="/" class="flex flex-col items-center gap-1 p-2 w-16 text-emerald-600 dark:text-emerald-400">
                 <i class="fa-solid fa-house text-lg"></i>
