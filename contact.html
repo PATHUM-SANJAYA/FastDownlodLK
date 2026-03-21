@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Us | FastdownloadLK</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#10b981">
+    <link rel="apple-touch-icon" href="/assets/icon.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -128,8 +133,9 @@
             </div>
         </main>
 
+        <!-- Footer -->
         <footer
-            class="mt-auto py-6 md:py-8 glass-card border-b-0 border-x-0 mx-4 md:mx-12 lg:mx-auto max-w-7xl w-full rounded-t-[1.5rem] md:rounded-t-[2rem] text-slate-500 dark:text-slate-400 text-sm">
+            class="mt-auto py-6 md:py-8 mb-16 md:mb-0 glass-card border-b-0 border-x-0 mx-4 md:mx-12 lg:mx-auto max-w-7xl w-full rounded-t-[1.5rem] md:rounded-t-[2rem] text-slate-500 dark:text-slate-400 text-sm">
             <div class="flex flex-col md:flex-row justify-between items-center px-6 md:px-12 gap-4 md:gap-5">
                 <!-- Branding -->
                 <div class="flex items-center gap-2 font-bold text-sm md:text-base text-slate-800 dark:text-slate-200">
@@ -171,6 +177,25 @@
             </div>
         </footer>
     </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <div class="md:hidden fixed bottom-0 w-full z-50 bg-white/80 dark:bg-[#0e1111]/80 backdrop-blur-xl border-t border-slate-200 dark:border-white/10 pb-[env(safe-area-inset-bottom)]">
+        <div class="flex justify-around items-center px-2 py-1.5">
+            <a href="/" class="flex flex-col items-center gap-1 p-2 w-16 text-slate-500 dark:text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors">
+                <i class="fa-solid fa-house text-lg"></i>
+                <span class="text-[10px] font-semibold">Home</span>
+            </a>
+            <a href="/contact.html" class="flex flex-col items-center gap-1 p-2 w-16 text-emerald-600 dark:text-emerald-400">
+                <i class="fa-regular fa-envelope text-lg"></i>
+                <span class="text-[10px] font-medium">Contact</span>
+            </a>
+            <a href="/privacy.html" class="flex flex-col items-center gap-1 p-2 w-16 text-slate-500 dark:text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors">
+                <i class="fa-solid fa-shield-halved text-lg"></i>
+                <span class="text-[10px] font-medium">Privacy</span>
+            </a>
+        </div>
+    </div>
+
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="./script.js"></script>
 </body>

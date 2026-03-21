@@ -1,0 +1,19 @@
+{
+  "name": "FastdownloadLK",
+  "short_name": "FastDL LK",
+  "description": "Premium Universal Social Media Downloader. Download videos from YouTube, TikTok, Instagram, and Facebook instantly.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0e1111",
+  "theme_color": "#10b981",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "entertainment"]
+}

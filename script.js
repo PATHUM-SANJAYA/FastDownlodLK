@@ -1,3 +1,11 @@
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => {
+            console.warn('ServiceWorker registration failed: ', err);
+        });
+    });
+}
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('appData', () => ({
         url: '',
@@ -17,6 +25,17 @@ document.addEventListener('alpine:init', () => {
             this.isDarkMode = localStorage.getItem('theme') === 'dark' ||
                 (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
             this.updateTheme();
+
+            // Hardware Back Button handling (Android/PWA)
+            window.addEventListener('popstate', (e) => {
+                if (!e.state || !e.state.isResult) {
+                    if (this.videoData) {
+                        this.videoData = null;
+                        this.url = ''; // Clear the input as well
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                }
+            });
 
             // Initialize AOS Library
             if (typeof AOS !== 'undefined') {
@@ -211,6 +230,11 @@ document.addEventListener('alpine:init', () => {
 
         renderPreview(data) {
             this.videoData = data;
+            
+            // Push state for hardware back button support
+            if (!history.state || !history.state.isResult) {
+                history.pushState({ isResult: true }, '', '#result');
+            }
         },
 
         renderDownloadOptions(rawFormats, videoUrl) {
